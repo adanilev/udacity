@@ -4,6 +4,8 @@ import fresh_tomatoes
 # This is the file that is run to launch the Movie Trailer site
 
 # First, create all of the Movie instances and set their properties
+# Caution!! Beware of temporary links to artwork. Make sure to use persistent
+# links.
 # N.B. many of the links run across multiple lines so that they are all are <80
 # characters as per Google's Python Style Guide
 m1 = media.Movie('Star Trek: Generations',
