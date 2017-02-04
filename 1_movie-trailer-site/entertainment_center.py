@@ -1,7 +1,11 @@
 import media
 import fresh_tomatoes
 
-# Create all of the Movie instances and set their properties
+# This is the file that is run to launch the Movie Trailer site
+
+# First, create all of the Movie instances and set their properties
+# N.B. many of the links run across multiple lines so that they are all are <80
+# characters as per Google's Python Style Guide
 m1 = media.Movie('Star Trek: Generations',
     'http://cdn2us.denofgeek.com/sites/denofgeekus/files/'
     'generations_poster.jpg',
@@ -22,6 +26,10 @@ m4 = media.Movie('Star Trek: Nemesis',
     '.jpg',
     'https://www.youtube.com/watch?v=KFUjGFpW7OI')
 
-# Now display them
-movies = [m1,m2,m3,m4];
+# Now add them to an array so we can pass to a function.
+movies = [m1,m2,m3,m4]
+
+# Finally, pass the array to the function which will generate an HTML file
+# and open it in your default browser. It creates a page that shows the list of
+# movies we defined above.
 fresh_tomatoes.open_movies_page(movies)
