@@ -1,0 +1,73 @@
+/*
+
+Your styles go here!
+
+Hint! You'll probably want to start by styling:
+  * <body>
+  * <article>
+  * <h1>
+  * <img>
+
+I've left some boilerplate below for you.
+
+*/
+
+header {
+  margin: 0 auto;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  margin: 2em;
+  font-family: 'Noto Serif', serif;
+}
+
+article {
+  margin: 0 auto;
+  max-width: 62em;
+  text-align: justify;
+}
+
+h1 {
+  margin: 0 auto 1em auto;
+  width: 800px;
+  text-align: center;
+}
+
+h2 {
+  text-align: center;
+}
+
+img {
+    max-width: 100%;
+}
+
+figure {
+  margin: 3em 0 3em 0;
+}
+
+figcaption {
+  font-style: italic;
+}
+
+footer {
+  margin: 0 auto;
+  text-align: center;
+}
+
+
+hr {
+  border-width: 1px;
+}
+
+.fa {
+  font-size: 2em;
+  color: black;
+  margin-right: 12px;
+}
+
+svg#the-finger {
+
+}
