@@ -6,6 +6,7 @@
   <script src="https://use.fontawesome.com/33c8eb5786.js"></script>
   <link rel="stylesheet" href="css/bootstrap.min.css">
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" media="screen and (max-width:767px)" href="css/lessthan768.css">
   <title>Alex's Portfolio</title>
 </head>
 
@@ -13,11 +14,11 @@
   <div class="container">
 
     <div class="row">
-      <div class="col-sm-3">
-        <img class="img-responsive" id="top-logo" src="img/code-icon.svg" />
-      </div>
-      <div class="col-sm-9 text-right">
-        <header>
+      <header>
+        <div class="col-sm-3">
+          <img class="img-responsive" id="header-logo" src="img/code-icon.svg" />
+        </div>
+        <div class="col-sm-9 text-right" id="header-name">
           <h1>Alex Danilevsky<br>
             <small>
               Code Killer<br>
@@ -27,13 +28,19 @@
               <a href="https://www.linkedin.com/in/adanilevsky/" title="My LinkedIn"><i class="fa fa-linkedin-square"></i></a>
             </small>
           </h1>
-        </header>
+        </div>
+      </header>
+    </div>
+
+    <div class="row">
+      <div class="col-md-12">
+        <hr>
       </div>
     </div>
 
     <div class="row">
       <div class="col-sm-12">
-        <img class="img-responsive" src="img/1140x350" />
+        <img class="img-responsive" src="img/blade-runner-eye.webp" />
       </div>
     </div>
 
@@ -54,67 +61,87 @@
     </div>
 
     <div class="row">
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/jean-luc-200x200_small.png" />
+            <figcaption>
+              <h4>Jean-Luc</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/num1-200x200_small.png" />
+            <figcaption>
+              <h4>Riker</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/data-200x200_small.png" />
+            <figcaption>
+              <h4>Data</h4>
+            </figcaption>
+          </a>
+        </figure>
+      </div>
+      <div class="col-md-3 col-xs-6 text-center">
+        <figure>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/worf-200x200_small.png" />
+            <figcaption>
+              <h4>Worf</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
     </div>
 
     <div class="row">
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/geordi-200x200_small.png" />
+            <figcaption>
+              <h4>Geordi</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/deanna-200x200_small.png" />
+            <figcaption>
+              <h4>Deanna</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
-      <div class="col-sm-4 text-center">
+      <div class="col-md-3 col-xs-6 text-center">
         <figure>
-          <img class="img-responsive img-circle center-block" src="img/100x100" />
-          <figcaption>
-            <h4>Appify<br>
-              <small><a href="https://github.com/udacity/appify" title="Appify">https://github.com/udacity/appify</a></small>
-            </h4>
-          </figcaption>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/dr-200x200_small.png" />
+            <figcaption>
+              <h4>Dr Crusher</h4>
+            </figcaption>
+          </a>
+        </figure>
+      </div>
+      <div class="col-md-3 col-xs-6 text-center">
+        <figure>
+          <a href="https://github.com/udacity/appify" title="Appify">
+            <img class="img-responsive img-circle center-block" src="img/wesley-200x200_small.png" />
+            <figcaption>
+              <h4>Crusher Jr</h4>
+            </figcaption>
+          </a>
         </figure>
       </div>
     </div>
