@@ -1,0 +1,21 @@
+<form>
+  <h2>Add a number to see its squares</h2>
+  <input type="text" name="n" value="{{ n }}">
+  <input type="submit">
+
+  {% if error != "" %}
+    <br>{{ error }}
+  {% elif n == 13 %}
+    <br>That's a good number!
+  {% else %}
+    <!-- could say something here, just showing the if else block -->
+  {% endif %}
+
+  <ol>
+    {% for x in range(1,n+1) %}
+      <li>{{x ** 2}}</li>
+    {% endfor %}
+  </ol>
+
+
+</form>

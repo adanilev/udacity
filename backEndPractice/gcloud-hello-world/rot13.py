@@ -56,7 +56,7 @@ def getNewIndex(currindex, listlen, direction):
         else:
             return currindex + increment
     else:
-        #DON'T NEED THIS!! DOH!!
+        #DON'T NEED TO THINK ABOUT DIRECTION!!! DOH!!
         if currindex - direction < 0:
             return listlen - (increment - currindex)
         else:
