@@ -1,0 +1,19 @@
+<form>
+  <h2>Add a food</h2>
+  <input type="text" name="food">
+  <button>Add</button>
+
+  {% if n == 1 %}
+  n equals 1
+  {% else %}
+  n !equals 1
+  {% endif %}
+
+  <ol>
+    {% for x in range(1,n+1) %}
+      <li>{{x ** 2}}</li>
+    {% endfor %}
+  </ol>
+
+
+</form>

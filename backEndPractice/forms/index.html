@@ -1,0 +1,45 @@
+<form>
+  <input type="text">
+  <input type="text" value="pre-def value">
+</form>
+
+<hr>
+
+<form>
+  <input type="checkbox" name="cbox1" value="1">
+  <input type="checkbox" name="cbox2" value="2">
+  <input type="checkbox" name="cbox3"> <!--this one is just "on"-->
+  <br>
+  <input type="submit">
+</form>
+
+<hr>
+
+<form>
+  <label>
+    One
+    <input type="radio" name="samename" value="one">
+  </label>
+  <label>
+    Two
+    <input type="radio" name="samename" value="two">
+  </label>
+  <label>
+    Three
+    <input type="radio" name="samename" value="three">
+  </label>
+  <br>
+  <input type="submit">
+</form>
+
+<hr>
+
+<form>
+    <select name="ddown">
+      <option value="1">uno</option>
+      <option value="2">dos</option>
+      <option>tres</option> <!--this one will return "tres"-->
+    </select>
+    <br>
+    <input type="submit">
+</form>
