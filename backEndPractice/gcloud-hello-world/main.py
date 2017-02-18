@@ -19,6 +19,8 @@ import jinja2
 import rot13
 import signup
 
+from google.appengine.ext import db
+
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
@@ -40,6 +42,7 @@ class MainPage(Handler):
     def get(self):
         self.render("index.html")
 
+
 class SquaresHandler(Handler):
     def get(self):
         n = self.request.get("n",10)
@@ -51,16 +54,19 @@ class SquaresHandler(Handler):
             error="Slow down cowboy, enter a number <= 100"
         self.render("squares.html", n=n, error=error)
 
+
 class FizzBuzzHandler(Handler):
     def get(self):
         n = self.request.get("n", 3)
         n = n and int(n)
         self.render("fizzbuzz.html", n=n)
 
+
 class ShoppingListHandler(Handler):
     def get(self):
         items = self.request.get_all("food")
         self.render("shopping_list.html", items=items)
+
 
 class ROT13Handler(Handler):
     def get(self):
@@ -70,6 +76,7 @@ class ROT13Handler(Handler):
         text = self.request.get("text")
         converted = rot13.convert(text, 1)
         self.render("rot13.html", converted=converted)
+
 
 class SignupHandler(Handler):
     def get(self):
@@ -92,21 +99,55 @@ class SignupHandler(Handler):
             self.redirect("/welcome?username=%s" % values["username"])
         else:
             self.render("signup.html", **values)
-            # i couldn't figure out the **kwargs notation before i wrote this part
-            ########
-            # self.render("signup.html", username=values["username"],
-            #                            usernameError=values["usernameError"],
-            #                            password=values["password"],
-            #                            passwordError=values["passwordError"],
-            #                            verify=values["verify"],
-            #                            verifyError=values["verifyError"],
-            #                            email=values["email"],
-            #                            emailError=values["emailError"])
+
 
 class SignupWelcomeHandler(Handler):
     def get(self):
         username = self.request.get("username")
         self.render("welcome.html",username=username)
+
+
+#this defines the DataStore Model. ~an object that can be added to the DataStore
+class BlogEntry(db.Model):
+    subject = db.StringProperty(required = True)
+    content = db.TextProperty(required = True)
+    created_dt = db.DateTimeProperty(auto_now_add = True)
+    modified_dt = db.DateTimeProperty(auto_now = True)
+
+
+class BlogHandler(Handler):
+    def get(self):
+        posts = db.GqlQuery("SELECT * FROM BlogEntry ORDER BY created_dt DESC LIMIT 10")
+        self.render("blog.html", posts=posts)
+
+
+class BlogNewPostHandler(Handler):
+    def get(self):
+        self.render("new_post.html")
+
+    def post(self):
+        subject = self.request.get("subject")
+        content = self.request.get("content")
+        error=""
+        if subject and content:
+            #content = content.replace('\n', '<br>')
+            be = BlogEntry(subject = subject, content = content)
+            be.put()
+            self.redirect('/blog/' + str(be.key().id()))
+            self.render("new_post.html",subject=subject,content=content,error=error)
+        else:
+            error = "Please complete both fields to post!"
+            self.render("new_post.html",subject=subject,content=content,error=error)
+
+
+class BlogEntryHandler(Handler):
+    def get(self, entry_id):
+        post = BlogEntry.get_by_id(int(entry_id))
+        if post:
+            self.render("blog_entry.html", post=post)
+        else:
+            self.error(404)
+
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
@@ -115,5 +156,8 @@ app = webapp2.WSGIApplication([
     ('/shoppinglist', ShoppingListHandler),
     ('/rot13', ROT13Handler),
     ('/signup', SignupHandler),
-    ('/welcome', SignupWelcomeHandler)],
+    ('/welcome', SignupWelcomeHandler),
+    ('/blog', BlogHandler),
+    ('/blog/newpost', BlogNewPostHandler),
+    ('/blog/(\d+)', BlogEntryHandler)],
     debug=True)

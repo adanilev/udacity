@@ -1,0 +1,8 @@
+<h1>A Blog</h1>
+<hr>
+{% for post in posts %}
+  <h3>{{ post.subject }}</h3>
+  <p>{{ post.content }}</p>
+  <footer style="font-size: 0.8em; font-style: italic ">{{ post.created_dt }}</footer>
+  <hr>
+{% endfor %}
