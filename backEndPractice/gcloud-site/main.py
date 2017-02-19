@@ -108,7 +108,7 @@ class SignupHandler(Handler):
             self.render("signup.html", **values)
 
 
-class SignupWelcomeHandler(Handler):
+class WelcomeHandler(Handler):
     def get(self):
         #get the cookie
         id_cookie = self.request.cookies.get("user_id")
@@ -148,6 +148,14 @@ class LoginHandler(Handler):
 
         else:
             self.render("login.html", **values)
+
+
+class LogoutHandler(Handler):
+    def get(self):
+        #set user_id cookie to ''
+        self.response.headers.add_header('Set-Cookie','user_id=''; Path=/')
+        #and redirect
+        self.redirect("/signup")
 
 
 #this defines the DataStore Model. ~an object that can be added to the DataStore
@@ -197,8 +205,9 @@ app = webapp2.WSGIApplication([
     ('/shoppinglist', ShoppingListHandler),
     ('/rot13', ROT13Handler),
     ('/signup', SignupHandler),
-    ('/welcome', SignupWelcomeHandler),
+    ('/welcome', WelcomeHandler),
     ('/login', LoginHandler),
+    ('/logout', LogoutHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
