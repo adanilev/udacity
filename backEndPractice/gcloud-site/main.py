@@ -93,18 +93,61 @@ class SignupHandler(Handler):
                    "emailError": "",
                    "success": ""})
 
-        values = signup.verify(values)
+        values = signup.verifySignupInput(values)
 
         if values["success"]:
-            self.redirect("/welcome?username=%s" % values["username"])
+            user_id = signup.createUser(values)
+            cookieVal = '%s|%s' % (str(user_id), signup.hashAndSalt(str(user_id)))
+            self.response.headers.add_header('Set-Cookie',
+                                             'user_id=%s; Path=/' % cookieVal)
+            self.redirect("/welcome")
         else:
+            #blank the passwords and let them try again
+            values["password"] = ""
+            values["verify"] = ""
             self.render("signup.html", **values)
 
 
 class SignupWelcomeHandler(Handler):
     def get(self):
-        username = self.request.get("username")
-        self.render("welcome.html",username=username)
+        #get the cookie
+        id_cookie = self.request.cookies.get("user_id")
+        #if you got something
+        if id_cookie:
+            #break it into bits: [id, hash, salt]
+            id_cookie = id_cookie.split("|")
+            #check it's valid
+            if signup.isValidHash(id_cookie[0],id_cookie[1],id_cookie[2]):
+                #now can lookup their name
+                username = signup.User.get_by_id(int(id_cookie[0])).username
+                self.render("welcome.html",username=username)
+            else:
+                self.redirect('/signup')
+        else:
+            self.redirect('/signup')
+
+
+class LoginHandler(Handler):
+    def get(self):
+        self.render("login.html")
+
+    def post(self):
+        #get what they entered
+        values = ({"username": self.request.get("username"),
+                   "password": self.request.get("password"),
+                   "loginError": ""})
+
+        if signup.validateLogin(values):
+            #set the cookie
+            user_id = signup.getUserID(values["username"])
+            cookieVal = '%s|%s' % (str(user_id), signup.hashAndSalt(str(user_id)))
+            self.response.headers.add_header('Set-Cookie',
+                                             'user_id=%s; Path=/' % cookieVal)
+            #and redirect
+            self.redirect("/welcome")
+
+        else:
+            self.render("login.html", **values)
 
 
 #this defines the DataStore Model. ~an object that can be added to the DataStore
@@ -130,7 +173,6 @@ class BlogNewPostHandler(Handler):
         content = self.request.get("content")
         error=""
         if subject and content:
-            #content = content.replace('\n', '<br>')
             be = BlogEntry(subject = subject, content = content)
             be.put()
             self.redirect('/blog/' + str(be.key().id()))
@@ -148,7 +190,6 @@ class BlogEntryHandler(Handler):
         else:
             self.error(404)
 
-
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/squares', SquaresHandler),
@@ -157,6 +198,7 @@ app = webapp2.WSGIApplication([
     ('/rot13', ROT13Handler),
     ('/signup', SignupHandler),
     ('/welcome', SignupWelcomeHandler),
+    ('/login', LoginHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
