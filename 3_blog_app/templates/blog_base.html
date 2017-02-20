@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://use.fontawesome.com/33c8eb5786.js"></script>
+  <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+  <script src="js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/main.css">
+  <title>Very Fancy Blog</title>
+</head>
+
+<body>
+  <div class="container">
+
+    <header class="row">
+      <section class="col-xs-12 text-right login-bar">
+        Login
+      </section>
+
+      <section class="col-xs-12 text-center">
+        <h1 class="text-uppercase">A Fancy Blog</h1>
+      </section>
+
+      <section class="col-xs-12">
+        <hr>
+      </section>
+    </header>
+
+    {% block blogpost %}
+    {% endblock %}
+
+    <footer class="row">
+      <div class="col-xs-12 text-center">
+        Made with XXX in Sydney, Australia<br>
+        &#169; Alex Danilevsky 2017
+      </div>
+    </footer>
+
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,22 @@
+.login-bar {
+  margin-top: 5px;
+}
+
+.post-content {
+  text-align: justify;
+}
+
+.post-footer-right, .post-footer-left {
+  font-size: 1.5em;
+  margin-top: 7px;
+}
+
+.comment-title {
+  margin-top: 5px;
+}
+
+.comment-header {
+  font-size: 1em;
+  font-family: monospace;
+  color: #808080;
+}
