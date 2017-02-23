@@ -8,7 +8,8 @@ This is an example of a basic blog built using Google AppEngine, Python, Jinja2 
 * Commenting and liking
 * Much, much more! (not really)
 
-You can access by going here: [https://fancy-blog.appspot.com/blog](https://fancy-blog.appspot.com/blog)
+You can check it out here: [https://fancy-blog.appspot.com/blog](https://fancy-blog.appspot.com/blog)
+* **Note** You may have to tell your browser to load unsafe scripts. That's because JavaScript files are required for some animations and the site isn't really https.
 
 To deploy and run yourself:
 * Download the files in this folder (/3_blog_app)
