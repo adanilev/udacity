@@ -33,7 +33,7 @@
   max-width: 300px;
 }
 
-.newpost-subject-inp, .newpost-content-inp {
+.newpost-subject-inp, .newpost-content-inp, .editcomment-inp {
   max-width: 500px;
 }
 
@@ -41,6 +41,11 @@
   margin-bottom: 20px;
 }
 
-.login-submit-btn, .signup-submit-btn, .newpost-submit-btn {
+.login-submit-btn, .signup-submit-btn, .editcomment-submit-btn {
   margin-bottom: 30px;
+}
+
+.newpost-cancel-btn {
+  margin: 8px auto 30px auto;
+  max-width: 70px;
 }

@@ -44,14 +44,14 @@
       </div>
       <div class="col-xs-12 text-right add-comment-btnrow">
         <input type="submit" class="btn btn-default add-comment-btn" id="comment-btn-{{ post.key().id() }}" role="button" value="Add Comment" aria-expanded="false" aria-controls="collapseExample"></input>
-        <div class="text-danger">{{ errors['commentError'] }}</div>
+        <div class="text-danger">{% if expandPost == post.key().id() %}{{ errors['commentError'] }}{% endif %}</div>
       </div>
     </form>
 
     <!-- for each comment on this post -->
     {% for c in Comment.all().filter('postID = ', post.key().id()).order('-created') %}
     <div class="col-xs-12 comment-header">
-      {{ User.get_by_id(c.authorID).username }} commented on {{ c.created }}:
+      {{ User.get_by_id(c.authorID).username }} commented on {{ c.created.strftime('%Y-%m-%d @ %H:%M:%S') }} (<a href="/editcomment?commentID={{ c.key().id() }}">Edit</a> | <a href="?deleteComment={{ c.key().id() }}&postID={{ post.key().id() }}">Delete</a>):
     </div>
     <section class="col-xs-12 comment-content">
       {{ c.commentText }}

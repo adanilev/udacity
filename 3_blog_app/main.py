@@ -85,39 +85,81 @@ class BlogHandler(Handler):
         likePost = self.request.get("likePost")
         editPost = self.request.get("editPost")
         deletePost = self.request.get("deletePost")
+        deleteComment = self.request.get("deleteComment")
 
-        #are they logged in?
-        if self.currUser:
-            #what action to handle?
-            if likePost:
-                likePost = int(likePost)
-                #liking their own post?
-                if self.currUser.key().id() == BlogEntry.get_by_id(likePost).authorID:
-                    self.errors['errorOnPost'] = likePost
-                    self.errors['likeError'] = "Sorry narcissist, you can't like your own posts"
-                else:
-                    #increment numLikes
-                    be = BlogEntry.get_by_id(likePost)
-                    be.numLikes += 1
-                    be.put()
-                    time.sleep(0.5)
-            elif editPost:
-                editPost = int(editPost)
-                if self.currUser.key().id() != BlogEntry.get_by_id(editPost).authorID:
-                    self.errors['errorOnPost'] = editPost
-                    self.errors['editError'] = "You can only edit your own posts"
-                else:
-                    self.redirect('/blog/newpost?editPost=' + str(editPost))
-            elif deletePost:
-                deletePost = int(deletePost)
-                if self.currUser.key().id() != BlogEntry.get_by_id(deletePost).authorID:
-                    self.errors['errorOnPost'] = deletePost
-                    self.errors['deleteError'] = "You can only delete your own posts"
-                else:
-                    #TODO: put in a "are you sure" dialogue
-                    BlogEntry.get_by_id(deletePost).delete()
-                    time.sleep(1)
 
+        #what action to handle?
+        if likePost:
+            if not self.currUser:
+                self.redirect('/signup')
+                return
+            likePost = int(likePost)
+            #liking their own post?
+            if self.currUser.key().id() == BlogEntry.get_by_id(likePost).authorID:
+                self.errors['errorOnPost'] = likePost
+                self.errors['likeError'] = "Sorry narcissist, you can't like your own posts"
+            else:
+                #increment numLikes
+                be = BlogEntry.get_by_id(likePost)
+                be.numLikes += 1
+                be.put()
+                time.sleep(0.5)
+        elif editPost:
+            if not self.currUser:
+                self.redirect('/signup')
+                return
+            editPost = int(editPost)
+            if self.currUser.key().id() != BlogEntry.get_by_id(editPost).authorID:
+                self.errors['errorOnPost'] = editPost
+                self.errors['editError'] = "You can only edit your own posts"
+            else:
+                self.redirect('/blog/newpost?editPost=' + str(editPost))
+        elif deletePost:
+            if not self.currUser:
+                self.redirect('/signup')
+                return
+            deletePost = int(deletePost)
+            if self.currUser.key().id() != BlogEntry.get_by_id(deletePost).authorID:
+                self.errors['errorOnPost'] = deletePost
+                self.errors['deleteError'] = "You can only delete your own posts"
+            else:
+                #TODO: put in a "are you sure" dialogue
+                BlogEntry.get_by_id(deletePost).delete()
+                time.sleep(1)
+        elif deleteComment:
+            if not self.currUser:
+                #User is not logged in
+                self.redirect('/signup')
+                return
+            else:
+                #They are logged in, so check the comment to delete exists
+                deleteComment = int(deleteComment)
+                expandPost = int(self.request.get("postID"))
+                if Comment.get_by_id(deleteComment):
+                    #Are they deleting their own comment?
+                    if self.currUser.key().id() == Comment.get_by_id(deleteComment).authorID:
+                        #Delete the comment and show a success message
+                        Comment.get_by_id(deleteComment).delete()
+                        time.sleep(1)
+                        self.errors['errorOnPost'] = deleteComment
+                        self.errors['commentError'] = "Comment deleted!"
+                        self.renderBlogPage(expandPost=expandPost)
+                    else:
+                        #Show error if not their comment
+                        self.errors['errorOnPost'] = deleteComment
+                        self.errors['commentError'] = "You can only delete your own comments!"
+                        self.renderBlogPage(expandPost=expandPost)
+                        return
+                else:
+                    #else the comment doesn't exist, so show an error
+                    #TODO should check for the postID too....
+                    self.errors['errorOnPost'] = deleteComment
+                    self.errors['commentError'] = "Error: that comment doesn't exist!"
+                    self.renderBlogPage(expandPost=expandPost)
+                    return
+
+
+        #finally, render the page
         self.renderBlogPage()
 
     def post(self):
@@ -268,6 +310,48 @@ class WelcomeHandler(BlogHandler):
         if self.currUser:
             username = self.currUser.username
             self.render("welcome.html",username=username, currUser=self.currUser)
+        else:
+            self.redirect('/signup')
+
+class EditCommentHandler(BlogHandler):
+    def get(self):
+        if self.currUser:
+            commentID = self.request.get("commentID")
+            if commentID:
+                commentID = int(commentID)
+                if self.currUser.key().id() == Comment.get_by_id(commentID).authorID:
+                    #get the comment
+                    commentText = Comment.get_by_id(commentID).commentText
+                    editCommentError = ''
+                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+                else:
+                    commentText = ''
+                    editCommentError = 'Whoa there, Nelly! You can only edit your own comments.'
+                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+        else:
+            self.redirect('/signup')
+
+    def post(self):
+        if self.currUser:
+            commentID = self.request.get("commentID")
+            if commentID:
+                commentID = int(commentID)
+                if self.currUser.key().id() == Comment.get_by_id(commentID).authorID:
+                    commentText = self.request.get("commentText")
+                    if commentText:
+                        c = Comment.get_by_id(commentID)
+                        c.commentText = commentText
+                        c.put();
+                        time.sleep(1)
+                        self.redirect('/blog')
+                    else:
+                        commentText = Comment.get_by_id(commentID).commentText
+                        editCommentError = 'Please enter a comment to update.'
+                        self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+                else:
+                    commentText = ''
+                    editCommentError = 'Whoa there, Nelly! You can only edit your own comments.'
+                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
         else:
             self.redirect('/signup')
 
@@ -439,6 +523,7 @@ app = webapp2.WSGIApplication([
     ('/welcome', WelcomeHandler),
     ('/login', LoginHandler),
     ('/logout', LogoutHandler),
+    ('/editcomment', EditCommentHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
