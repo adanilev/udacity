@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://use.fontawesome.com/33c8eb5786.js"></script>
   <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
-  <script src="js/bootstrap.min.js"></script>
-  <link rel="stylesheet" href="css/bootstrap.min.css">
-  <link rel="stylesheet" href="css/main.css">
+  <script src="/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/css/main.css">
   <title>Very Fancy Blog</title>
 </head>
 
@@ -15,12 +15,22 @@
   <div class="container">
 
     <header class="row">
-      <section class="col-xs-12 text-right login-bar">
-        Login
+      <section class="col-xs-6 text-left login-bar">
+        <a href="/blog/newpost">New Post<a>
+      </section>
+      <section class="col-xs-6 text-right login-bar">
+        {% if currUser %}
+          <a href="/logout">Logout</a>
+        {% else %}
+          <a href="/signup">Signup<a> |
+          <a href="/login">Login</a>
+        {% endif %}
       </section>
 
       <section class="col-xs-12 text-center">
-        <h1 class="text-uppercase">A Fancy Blog</h1>
+        <h1 class="text-uppercase">
+          <a href="/">A Fancy Blog</a>
+        </h1>
       </section>
 
       <section class="col-xs-12">
@@ -28,12 +38,12 @@
       </section>
     </header>
 
-    {% block blogpost %}
+    {% block pagecontent %}
     {% endblock %}
 
     <footer class="row">
-      <div class="col-xs-12 text-center">
-        Made with XXX in Sydney, Australia<br>
+      <div class="col-xs-12 site-footer text-center">
+        Made in Sydney, Australia<br>
         &#169; Alex Danilevsky 2017
       </div>
     </footer>

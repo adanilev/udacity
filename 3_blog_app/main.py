@@ -16,7 +16,12 @@ import os
 
 import webapp2
 import jinja2
-import signup
+import re
+import hmac
+import random
+import string
+import hashy
+import time
 
 from google.appengine.ext import db
 
@@ -24,6 +29,21 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
 
+
+def checkSecureCookie(cookieVal):
+    '''Confirms it's a valid cookie, returns None if not'''
+    #if you got something
+    if cookieVal:
+        #break it into bits: [val, hash, salt]
+        cookieVal = cookieVal.split("|")
+        #check it's valid
+        if isValidHash(cookieVal[0],cookieVal[1],cookieVal[2]):
+            return cookieVal[0]
+
+
+##############################################################
+# Shared Handlers
+##############################################################
 
 class Handler(webapp2.RequestHandler):
     def write(self, *a, **kw):
@@ -36,6 +56,20 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
+    def setCookie(self, user_id):
+        cookieVal = '%s|%s' % (str(user_id), hashAndSalt(str(user_id)))
+        self.response.headers.add_header('Set-Cookie',
+                                         'user_id=%s; Path=/' % cookieVal)
+
+    def readCookie(self, cookieName):
+        cookie_val = self.request.cookies.get(cookieName)
+        return cookie_val and checkSecureCookie(cookie_val)
+
+    def initialize(self, *a, **kw):
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        uid = self.readCookie('user_id')
+        self.currUser = uid and User.get_by_id(int(uid))
+
 
 class MainPage(Handler):
     def get(self):
@@ -43,13 +77,167 @@ class MainPage(Handler):
 
 
 class BlogHandler(Handler):
+    """Common Handler for any page that shows a blog post"""
     def get(self):
-        self.render("blog_posts.html")
+        self.initBlogErrors()
+        #what link was clicked? Ideally would have done this via post but didn't
+        #want to mess around with the JavaScript. Should hash at least
+        likePost = self.request.get("likePost")
+        editPost = self.request.get("editPost")
+        deletePost = self.request.get("deletePost")
 
+        #are they logged in?
+        if self.currUser:
+            #what action to handle?
+            if likePost:
+                likePost = int(likePost)
+                #liking their own post?
+                if self.currUser.key().id() == BlogEntry.get_by_id(likePost).authorID:
+                    self.errors['errorOnPost'] = likePost
+                    self.errors['likeError'] = "Sorry narcissist, you can't like your own posts"
+                else:
+                    #increment numLikes
+                    be = BlogEntry.get_by_id(likePost)
+                    be.numLikes += 1
+                    be.put()
+                    time.sleep(0.5)
+            elif editPost:
+                editPost = int(editPost)
+                if self.currUser.key().id() != BlogEntry.get_by_id(editPost).authorID:
+                    self.errors['errorOnPost'] = editPost
+                    self.errors['editError'] = "You can only edit your own posts"
+                else:
+                    self.redirect('/blog/newpost?editPost=' + str(editPost))
+            elif deletePost:
+                deletePost = int(deletePost)
+                if self.currUser.key().id() != BlogEntry.get_by_id(deletePost).authorID:
+                    self.errors['errorOnPost'] = deletePost
+                    self.errors['deleteError'] = "You can only delete your own posts"
+                else:
+                    #TODO: put in a "are you sure" dialogue
+                    BlogEntry.get_by_id(deletePost).delete()
+                    time.sleep(1)
+
+        self.renderBlogPage()
+
+    def post(self):
+        #if here, someone added a comment
+        self.initBlogErrors()
+        expandPost = int(self.request.get("postID"))
+        if self.currUser:
+            # check they entered something
+            if self.request.get("comment"):
+                self.addComment()
+            else:
+                self.errors['errorOnPost'] = int(self.request.get("postID"))
+                self.errors['commentError'] = "Please enter a comment"
+        else:
+            self.errors['errorOnPost'] = int(self.request.get("postID"))
+            self.errors['commentError'] = "Please login to add a comment"
+        self.renderBlogPage(expandPost=expandPost)
+
+    def renderBlogPage(self, posts='', expandPost=''):
+        """Convenience method to render any page showing a blog entry"""
+        if not posts:
+            posts = self.getPosts()
+        self.render("blog_posts.html", posts=posts, expandPost=expandPost,
+                                       currUser=self.currUser, Comment=Comment,
+                                       User=User, errors=self.errors)
+
+    def addComment(self):
+        comment = self.request.get("comment")
+        postID = int(self.request.get("postID"))
+        authorID = int(self.currUser.key().id())
+        Comment.addComment(comment, postID, authorID)
+        #TODO: find a more elegant way to deal with this instead of sleeping.
+        #The latest comment was not being returned immediately when reloading
+        time.sleep(1)
+
+    def getPosts(self):
+        postObjs = BlogEntry.all().order('-created')
+        posts = []
+        for post in postObjs:
+            posts.append(post)
+        return posts
+
+    def initBlogErrors(self):
+        """Avoid errors (pun intended) by creating an array now and setting all
+        possible errors to blank"""
+        self.errors = {}
+        self.errors['errorOnPost'] = ''
+        self.errors['commentError'] = ''
+        self.errors['likeError'] = ''
+        self.errors['editError'] = ''
+        self.errors['deleteError'] = ''
+
+
+##############################################################
+# Handlers
+##############################################################
+
+
+class BlogNewPostHandler(BlogHandler):
+    def get(self):
+        if not self.currUser:
+            self.redirect('/signup')
+        else:
+            newPostArgs = {'subject': '', 'content': '', 'error': ''}
+            editPost = self.request.get("editPost")
+            if editPost:
+                #if wanting to edit the post
+                editPost = int(editPost)
+                #double check identity
+                if self.currUser.key().id() == BlogEntry.get_by_id(editPost).authorID:
+                    newPostArgs['subject'] = BlogEntry.get_by_id(editPost).subject
+                    newPostArgs['content'] = BlogEntry.get_by_id(editPost).content
+                else:
+                    newPostArgs['error'] = "You can only edit your own posts"
+
+            self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+
+    def post(self):
+        #Are they logged in?
+        if not self.currUser:
+            self.redirect('/signup')
+        else:
+            #Get data the user input
+            newPostArgs = {}
+            newPostArgs['subject'] = self.request.get("subject")
+            newPostArgs['content'] = self.request.get("content")
+            newPostArgs['error'] = ''
+            #If it's a valid post
+            if newPostArgs['subject'] and newPostArgs['content']:
+                #is it an update?
+                if self.request.get("editPost"):
+                    be = BlogEntry.get_by_id(int(self.request.get("editPost")))
+                    be.subject = newPostArgs['subject']
+                    be.content = newPostArgs['content']
+                else:
+                    #else create a new entry
+                    be = BlogEntry(subject=newPostArgs['subject'],
+                                   content=newPostArgs['content'],
+                                   authorID = self.currUser.key().id())
+                be.put()
+                #And then redirect to the single post page
+                self.redirect('/blog/' + str(be.key().id()))
+                self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+            else:
+                newPostArgs['error'] = "Please complete both fields to post!"
+                self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+
+
+class BlogEntryHandler(BlogHandler):
+    def get(self, entry_id):
+        self.initBlogErrors()
+        post = BlogEntry.get_by_id(int(entry_id))
+        if post:
+            self.renderBlogPage([post])
+        else:
+            self.error(404)
 
 class SignupHandler(Handler):
     def get(self):
-        self.render("signup.html")
+        self.render("signup.html", currUser=self.currUser)
 
     def post(self):
         values = ({"username": self.request.get("username"),
@@ -62,13 +250,11 @@ class SignupHandler(Handler):
                    "emailError": "",
                    "success": ""})
 
-        values = signup.verifySignupInput(values)
+        values = verifySignupInput(values)
 
         if values["success"]:
-            user_id = signup.createUser(values)
-            cookieVal = '%s|%s' % (str(user_id), signup.hashAndSalt(str(user_id)))
-            self.response.headers.add_header('Set-Cookie',
-                                             'user_id=%s; Path=/' % cookieVal)
+            user_id = createUser(values)
+            self.setCookie(user_id)
             self.redirect("/welcome")
         else:
             #blank the passwords and let them try again
@@ -77,21 +263,11 @@ class SignupHandler(Handler):
             self.render("signup.html", **values)
 
 
-class WelcomeHandler(Handler):
+class WelcomeHandler(BlogHandler):
     def get(self):
-        #get the cookie
-        id_cookie = self.request.cookies.get("user_id")
-        #if you got something
-        if id_cookie:
-            #break it into bits: [id, hash, salt]
-            id_cookie = id_cookie.split("|")
-            #check it's valid
-            if signup.isValidHash(id_cookie[0],id_cookie[1],id_cookie[2]):
-                #now can lookup their name
-                username = signup.User.get_by_id(int(id_cookie[0])).username
-                self.render("welcome.html",username=username)
-            else:
-                self.redirect('/signup')
+        if self.currUser:
+            username = self.currUser.username
+            self.render("welcome.html",username=username, currUser=self.currUser)
         else:
             self.redirect('/signup')
 
@@ -101,20 +277,16 @@ class LoginHandler(Handler):
         self.render("login.html")
 
     def post(self):
-        #get what they entered
+        #Get the details from the form.
         values = ({"username": self.request.get("username"),
                    "password": self.request.get("password"),
                    "loginError": ""})
 
-        if signup.validateLogin(values):
-            #set the cookie
-            user_id = signup.getUserID(values["username"])
-            cookieVal = '%s|%s' % (str(user_id), signup.hashAndSalt(str(user_id)))
-            self.response.headers.add_header('Set-Cookie',
-                                             'user_id=%s; Path=/' % cookieVal)
-            #and redirect
-            self.redirect("/welcome")
-
+        #Set cookie and redirect if login details are correct.
+        if validateLogin(values):
+            user_id = getUserID(values["username"])
+            self.setCookie(user_id)
+            self.redirect("/blog")
         else:
             self.render("login.html", **values)
 
@@ -127,41 +299,139 @@ class LogoutHandler(Handler):
         self.redirect("/signup")
 
 
+
+
+##############################################################
+# Blog and Comment Models
+##############################################################
+
 #this defines the DataStore Model. ~an object that can be added to the DataStore
 class BlogEntry(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
-    created_dt = db.DateTimeProperty(auto_now_add = True)
-    modified_dt = db.DateTimeProperty(auto_now = True)
+    numLikes = db.IntegerProperty(default = 0)
+    authorID = db.IntegerProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+    modified = db.DateTimeProperty(auto_now = True)
+
+#define comments
+class Comment(db.Model):
+    commentText = db.TextProperty(required = True)
+    postID = db.IntegerProperty(required = True)
+    authorID = db.IntegerProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+
+    @classmethod
+    def addComment(cls, commentText, postID, authorID):
+        newComment = Comment(commentText=commentText, postID=postID,
+                             authorID=authorID)
+        newComment.put()
 
 
 
+##############################################################
+# User and login things
+##############################################################
 
-class BlogNewPostHandler(Handler):
-    def get(self):
-        self.render("new_post.html")
-
-    def post(self):
-        subject = self.request.get("subject")
-        content = self.request.get("content")
-        error=""
-        if subject and content:
-            be = BlogEntry(subject = subject, content = content)
-            be.put()
-            self.redirect('/blog/' + str(be.key().id()))
-            self.render("new_post.html",subject=subject,content=content,error=error)
-        else:
-            error = "Please complete both fields to post!"
-            self.render("new_post.html",subject=subject,content=content,error=error)
+#regexs
+USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+PASSWORD_RE = re.compile(r"^.{3,20}$")
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 
 
-class BlogEntryHandler(Handler):
-    def get(self, entry_id):
-        post = BlogEntry.get_by_id(int(entry_id))
-        if post:
-            self.render("blog_entry.html", post=post)
-        else:
-            self.error(404)
+class User(db.Model):
+    username = db.StringProperty(required = True)
+    password = db.TextProperty(required = True)
+    email = db.StringProperty(required = False)
+    joined = db.DateTimeProperty(auto_now_add = True)
+
+
+def createSalt():
+    letters = string.ascii_letters
+    result = ""
+    for i in range(5):
+        result += letters[random.randint(0,51)]
+    return result
+
+
+def hashAndSalt(sometext, salt=''):
+    """Inputs: sometext = text to hash. salt = defaults to something random
+       Outputs: hashedString|salt
+       """
+    if not salt:
+        salt = createSalt()
+    h = hmac.new(hashy.getHashKey(), '%s%s' % (sometext, salt)).hexdigest()
+    return '%s|%s' % (h, salt)
+
+
+def isValidHash(value,hashed,salt):
+    rehash = hashAndSalt(value,salt)
+    if rehash.split("|")[0] == hashed:
+        return True
+    else:
+        return False
+
+
+def createUser(values):
+    new_usr = User(username = values["username"],
+                   password = hashAndSalt(values["password"]))
+    new_usr.put()
+    return new_usr.key().id()
+
+
+def getUserID(username):
+    """return the user_id belonging to username, if not there, return None"""
+    theuser = db.Query(User).filter("username =",username).get()
+    if theuser:
+        return theuser.key().id()
+    else:
+        return False
+
+
+def validateLogin(values):
+    #does the username exist?
+    if getUserID(values["username"]):
+        #check the password
+        db_pw = db.Query(User).filter("username =",values["username"]).get().password
+        if hashAndSalt(values["password"],db_pw.split("|")[1]) == db_pw:
+            return True
+    #if here, username or password didn't match
+    values["loginError"] = "Invalid login details"
+    return False
+
+
+def verifySignupInput(values):
+    #innocent until proven guilty
+    values["success"] = True
+
+    #does the username exist already?
+    if getUserID(values["username"]):
+        values["usernameError"] = "Sorry, that username is already taken"
+        values["success"] = False
+
+    #verify username
+    if USER_RE.match(values["username"]) == None:
+        values["usernameError"] = "Invalid username"
+        values["success"] = False
+
+    #test the email
+    if values["email"]:
+        if EMAIL_RE.match(values["email"]) == None:
+            values["emailError"] = "Invalid email"
+            values["success"] = False
+
+    #test the password conforms
+    if PASSWORD_RE.match(values["password"]) == None:
+        values["passwordError"] = "Invalid password"
+        values["success"] = False
+    #and match
+    if values["password"] != values["verify"]:
+        values["verifyError"] = "Passwords don't match"
+        values["success"] = False
+
+    return values
+
+
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),

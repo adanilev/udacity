@@ -11,6 +11,10 @@
   margin-top: 7px;
 }
 
+.add-comment-btn {
+  margin-top: 8px;
+}
+
 .comment-title {
   margin-top: 5px;
 }
@@ -19,4 +23,24 @@
   font-size: 1em;
   font-family: monospace;
   color: #808080;
+}
+
+.site-footer {
+  margin-bottom: 20px;
+}
+
+.username-inp, .password-inp, .email-inp {
+  max-width: 300px;
+}
+
+.newpost-subject-inp, .newpost-content-inp {
+  max-width: 500px;
+}
+
+.welcome-row {
+  margin-bottom: 20px;
+}
+
+.login-submit-btn, .signup-submit-btn, .newpost-submit-btn {
+  margin-bottom: 30px;
 }
