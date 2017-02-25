@@ -17,4 +17,12 @@ CREATE TABLE matches (id SERIAL PRIMARY KEY,
                       winner INTEGER REFERENCES players(id),
                       loser INTEGER REFERENCES players(id));
 
-\c postgres
+CREATE OR REPLACE VIEW num_wins AS
+    SELECT players.id AS id, COUNT(matches.winner) AS wins
+        FROM players LEFT JOIN matches ON players.id = matches.winner
+        GROUP BY players.id;
+
+CREATE OR REPLACE VIEW num_losses AS
+    SELECT players.id AS id, COUNT(matches.loser) AS losses
+        FROM players LEFT JOIN matches ON players.id = matches.loser
+        GROUP BY players.id

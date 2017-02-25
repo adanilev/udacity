@@ -155,14 +155,13 @@ def myTest():
     reportMatch(4,3)
     reportMatch(3,1)
     reportMatch(2,4)
+    print playerStandings()
 
-    print 'success'
 
 if __name__ == '__main__':
-    testCount()
-    testStandingsBeforeMatches()
-    testReportMatches()
-    # myTest()
-    # print swissPairings()
-    testPairings()
+    myTest()
+    # testCount()
+    # testStandingsBeforeMatches()
+    # testReportMatches()
+    # testPairings()
     print "Success!  All tests pass!"
