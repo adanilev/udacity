@@ -1,0 +1,26 @@
+### CREATE
+myFirstRestaurant = Restaurant(name = "Pizza Palace")
+session.add(myFirstRestaurant)
+sesssion.commit()
+
+
+### READ
+firstResult = session.query(Restaurant).first()
+print firstResult.name
+
+items = session.query(MenuItem).all()
+for item in items:
+    print item.name
+
+
+### UPDATE
+UrbanVeggieBurger = session.query(MenuItem).filter_by(id=8).one()
+UrbanVeggieBurger.price = '$2.99'
+session.add(UrbanVeggieBurger)
+session.commit()
+
+
+### DELETE
+spinach = session.query(MenuItem).filter_by(name = 'Spinach Ice Cream').one()
+session.delete(spinach)
+session.commit()
