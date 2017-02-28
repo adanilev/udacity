@@ -1,5 +1,5 @@
-hashy.py
 *.DS_Store
+.idea/
 
 # node stuff + big images
 node_modules/
