@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/main.css') }}">
+  <title>Very Fancy Catalogue</title>
+</head>
+
+<body>
+  <div class="container">
+
+    <header class="row">
+      <div class="col-xs-8 text-left">
+        <h1><a href="/">Fancy Catalogue</a></h1>
+      </div>
+      <div class="col-xs-4 text-right header-login">
+        <button type="button" class="btn btn-default">Log In</button>
+      </div>
+      <div class="col-xs-12">
+        <hr/>
+      </div>
+    </header>
+
+    {% block pagecontent %}
+    {% endblock %}
+
+    <footer class="row">
+      <div class="col-xs-12">
+        <hr/>
+      </div>
+      <div class="col-xs-12 site-footer text-center">
+        Made in Sydney, Australia<br>
+        &#169; Alex Danilevsky 2017
+      </div>
+    </footer>
+
+  </div>
+</body>
+
+</html>

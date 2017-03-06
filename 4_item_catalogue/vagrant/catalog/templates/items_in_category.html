@@ -1,0 +1,16 @@
+{% extends "catalogue_base.html" %}
+
+{% block pagecontent %}
+<div class="row">
+  <div class="col-xs-12">
+    <p>Items in <a href="{{url_for('items_in_category_handler', category_name=category_name)}}">{{ category_name }}</a></p>
+    <ul>
+      {% for item in items %}
+        <li><a href="{{ url_for('item_handler', category_name=category_name, item_title=item.title) }}">{{ item.title }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+
+{% endblock %}
