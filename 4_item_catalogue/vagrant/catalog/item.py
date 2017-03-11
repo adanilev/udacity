@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from database_setup import Base, Category, Item, User
 
 import utils
+import category
 
 dprint = utils.dprint
 
@@ -18,7 +19,7 @@ def create_item(title, description, category_id, owner_id):
     # Check if Item already exists (same title and category)
     if get_item(title=title, category_id=category_id):
         dprint(1, "create_item failed. Item with title %s and category_id %s already exists" % (title, category_id))
-        return ''
+        return None
     # If not, create it and return id
     new_item = Item(title=title, description=description,
                     category_id=category_id, owner_id=owner_id)
@@ -27,20 +28,22 @@ def create_item(title, description, category_id, owner_id):
     return new_item.id
 
 
-def get_item(id='', title='', category_id=''):
-    '''Get item by id OR (title AND category_id)'''
+def get_item(id='', title='', category_id='', category_name=''):
+    """Get item by id OR (title AND (category_id OR category_name))"""
     if id:
         # search by id
         if session.query(Item.id).filter_by(id=id).scalar() is None:
             # return None if it doesn't exist
-            return ''
+            return None
         else:
             return session.query(Item).filter_by(id=id).one()
-    elif title and category_id:
+    elif title and (category_id or category_name):
+        if not category_id:
+            category_id = category.get_category(name=category_name).id
         # search by name
         if session.query(Item.id).filter_by(title=title, category_id=category_id).scalar() is None:
             # return None if it doesn't exist
-            return ''
+            return None
         else:
             return session.query(Item).filter_by(title=title, category_id=category_id).one()
     else:
@@ -50,6 +53,10 @@ def get_item(id='', title='', category_id=''):
 
 def get_items_in_category(category_id=''):
     return session.query(Item).filter_by(category_id=category_id).all()
+
+
+def get_all_items():
+    return session.query(Item).all()
 
 
 def update_item(id, title='', description='', category_id=''):
@@ -65,15 +72,17 @@ def update_item(id, title='', description='', category_id=''):
         # Update it
         add_to_db(item)
         dprint(3, "Updated %s" % item_tostring(item))
+        return item.id
     else:
         dprint(1, "update_category failed. \
             Category does not exist with id=%s" % id)
+        return None
 
 
 def item_tostring(item):
     return "Item: id=%s, title=%s, description=%s, category_id=%s, "\
            "owner_id=%s" % (str(item.id), item.title, item.description,
-           str(item.category_id), str(item.owner_id))
+                            str(item.category_id), str(item.owner_id))
 
 
 def add_to_db(an_obj):
@@ -87,5 +96,7 @@ def delete_item(id):
         session.delete(item)
         session.commit()
         dprint(3, 'Deleted Item id=%s, title=%s' % (id, item.title))
+        return True
     else:
         dprint(1, "delete_item failed. Item does not exist with id=%s" % id)
+        return False

@@ -18,13 +18,13 @@ def dprint(level, text):
     4 = Debug"""
     prefix = ''
     if level == 1:
-        prefix = 'ERROR: '
+        prefix = '[ ERROR ] '
     elif level == 2:
-        prefix = 'WARNING: '
+        prefix = '[ WARNING ] '
     elif level == 3:
-        prefix = 'INFO: '
+        prefix = '[ INFO ] '
     elif level == 4:
-        prefix = 'DEBUG: '
+        prefix = '[ DEBUG ] '
 
     if level <= dprint_level:
         print prefix + text

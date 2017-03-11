@@ -3,40 +3,94 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-  <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel=stylesheet type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel=stylesheet type="text/css" href="{{ url_for('static', filename='css/main.css') }}">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  <script src="//apis.google.com/js/platform.js?onload=start"></script>
+
   <title>Very Fancy Catalogue</title>
 </head>
 
 <body>
   <div class="container">
 
-    <header class="row">
-      <div class="col-xs-8 text-left">
-        <h1><a href="/">Fancy Catalogue</a></h1>
-      </div>
-      <div class="col-xs-4 text-right header-login">
-        <button type="button" class="btn btn-default">Log In</button>
-      </div>
-      <div class="col-xs-12">
-        <hr/>
-      </div>
-    </header>
+  <header class="row">
+    <div class="col-xs-8 text-left">
+      <h1><a href="/">Fancy Catalogue</a></h1>
+    </div>
+    <div class="col-xs-4 text-right header-login">
+      {% if logged_in %}
+          <a class="btn btn-default" href="/disconnect" role="button">Logout</a>
+        {% else %}
+        <!-- GOOGLE PLUS SIGN IN BUTTON-->
+        <div id="signInButton">
+          <span class="g-signin"
+                data-scope="openid email"
+                data-clientid="506158902073-nt91t1gvr02371opt28q1fvgh59ia840.apps.googleusercontent.com"
+                data-redirecturi="postmessage"
+                data-accesstype="offline"
+                data-cookiepolicy="single_host_origin"
+                data-callback="signInCallback"
+                data-approvalprompt="force">
+          </span>
+        </div>
+        <div id="signInResult"></div>
+        <!--END GOOGLE PLUS SIGN IN BUTTON -->
+      {% endif %}
+    </div>
+    <div class="col-xs-12">
+      <hr/>
+    </div>
+  </header>
 
-    {% block pagecontent %}
-    {% endblock %}
+  {% block pagecontent %}
+  {% endblock %}
 
-    <footer class="row">
-      <div class="col-xs-12">
-        <hr/>
-      </div>
-      <div class="col-xs-12 site-footer text-center">
-        Made in Sydney, Australia<br>
-        &#169; Alex Danilevsky 2017
-      </div>
-    </footer>
+  <footer class="row">
+    <div class="col-xs-12">
+      <hr/>
+    </div>
+    <div class="col-xs-12 site-footer text-center">
+      Made in Sydney, Australia<br>
+      &#169; Alex Danilevsky 2017
+    </div>
+  </footer>
 
-  </div>
+  <!-- START GOOGLE SIGN IN FUNCTION -->
+  <script>
+    function signInCallback(authResult) {
+      if (authResult['code']) {
+        // Hide the sign-in button now that the user is authorized
+        $('#signInButton').attr('style', 'display: none');
+        // Send the one-time-use code to the server, if the server responds, write a 'login successful' message to the web page and then redirect back to the main restaurants page
+        $.ajax({
+          type: 'POST',
+          url: '/gconnect?state={{ STATE }}',
+          processData: false,
+          data: authResult['code'],
+          contentType: 'application/octet-stream; charset=utf-8',
+          success: function(result) {
+            // Handle or verify the server response if necessary.
+            if (result) {
+              $('#signInResult').html(result + '</br>Reloading...')
+              setTimeout(function() {
+                location.reload();
+              }, 1000);
+
+            } else if (authResult['error']) {
+              console.log('There was an error: ' + authResult['error']);
+            } else {
+              $('#signInResult').html('Failed to make a server-side call. Check your configuration and console.');
+            }
+          }
+
+        });
+      }
+    }
+  </script>
+  <!-- END GOOGLE SIGN IN FUNCTION -->
+
+</div>
 </body>
 
 </html>

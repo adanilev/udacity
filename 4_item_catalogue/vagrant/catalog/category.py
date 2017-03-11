@@ -17,7 +17,7 @@ def create_category(name):
     # Check if Category name already exists
     if get_category(name=name):
         dprint(1, "create_category failed. Category name %s already exists" % name)
-        return ''
+        return None
     # If not, create it and return id
     new_cat = Category(name=name)
     add_to_db(new_cat)
@@ -37,12 +37,12 @@ def get_category(id ='', name=''):
         # search by name
         if session.query(Category.id).filter_by(name=name).scalar() is None:
             # return None if it doesn't exist
-            return ''
+            return None
         else:
             return session.query(Category).filter_by(name=name).one()
     else:
         dprint(1, "Nothing passed to get_category")
-        return ''
+        return None
 
 
 def get_all_categories():

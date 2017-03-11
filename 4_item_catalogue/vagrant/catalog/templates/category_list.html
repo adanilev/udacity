@@ -6,6 +6,9 @@
   <div class="col-xs-12">
     <p>Categories</p>
     <ul>
+      {% if logged_in %}
+        <li><a href="{{url_for('add_category_handler')}}">[ Add New Category ]</a></li>
+      {% endif %}
       {% for cat in categories %}
         <li><a href="{{url_for('items_in_category_handler', category_name=cat.name)}}">{{ cat.name }}</a></li>
       {% endfor %}

@@ -4,9 +4,30 @@
 
 <div class="row">
   <div class="col-xs-12">
-    Item info here.
+    <dl class="dl-horizontal">
+      <dt>Title</dt>
+      <dd>{{ item.title }}</dd>
+      <br>
+      <dt>Category</dt>
+      <dd><a href="{{url_for('items_in_category_handler', category_name=category.name)}}">{{ category.name }}</a></dd>
+      <br>
+      <dt>Description</dt>
+      <dd>{{ item.description }}</dd>
+      {% if logged_in %}
+        <br>
+        <dt>Actions</dt>
+        <dd><a href="{{url_for('edit_item_handler', category_name=category.name, curr_item_title=item.title)}}">Edit</a> | <a onclick="confirmDelete()">Delete</a></dd>
+      {% endif %}
+    </dl>
   </div>
 </div>
 
+<script>
+    function confirmDelete() {
+        if (confirm("Are you sure you want to delete this item?") == true) {
+            window.location.href = '{{url_for('delete_item_handler', category_name=category.name, item_title=item.title)}}';
+        }
+    }
+</script>
 
 {% endblock %}

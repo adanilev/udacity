@@ -27,6 +27,14 @@ User1 = User(name="Jean-Luc Picard", email="captain@enterprise.com",
 session.add(User1)
 session.commit()
 
+lorem = """Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do
+        eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
+        minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+        aliquip ex ea commodo consequat. Duis aute irure dolor in
+        reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+        pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+        culpa qui officia deserunt mollit anim id est laborum."""
+
 #categories
 for i in range(1, 10):
     cat = Category(name='Category%s' % str(i))
@@ -34,7 +42,8 @@ for i in range(1, 10):
     session.commit()
     #add items to that Category
     for j in range(1,10):
-        item = Item(title='Item %s:%s' % (str(i),str(j)), description='This is a description', category_id=cat.id, owner_id=User1.id)
+        item = Item(title='Item %s:%s' % (str(i),str(j)), description=lorem,
+                    category_id=cat.id, owner_id=User1.id)
         session.add(item)
         session.commit()
 

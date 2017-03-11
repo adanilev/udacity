@@ -3,8 +3,11 @@
 {% block pagecontent %}
 <div class="row">
   <div class="col-xs-12">
-    <p>Items in <a href="{{url_for('items_in_category_handler', category_name=category_name)}}">{{ category_name }}</a></p>
+    <p>Items in {{ category_name }}</p>
     <ul>
+      {% if logged_in %}
+        <li><a href="{{url_for('add_item_handler', category_name=category_name, action='add')}}">[ Add New Item ]</a></li>
+      {% endif %}
       {% for item in items %}
         <li><a href="{{ url_for('item_handler', category_name=category_name, item_title=item.title) }}">{{ item.title }}</a></li>
       {% endfor %}
