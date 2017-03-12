@@ -13,7 +13,7 @@
       <br>
       <dt>Description</dt>
       <dd>{{ item.description }}</dd>
-      {% if logged_in %}
+      {% if logged_in == item.owner_id %}
         <br>
         <dt>Actions</dt>
         <dd><a href="{{url_for('edit_item_handler', category_name=category.name, curr_item_title=item.title)}}">Edit</a> | <a onclick="confirmDelete()">Delete</a></dd>

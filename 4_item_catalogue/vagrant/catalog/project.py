@@ -28,9 +28,11 @@ def render_template(*args, **kwargs):
     state = ''.join(random.choice(string.ascii_uppercase + string.digits)
                     for x in xrange(32))
     login_session['state'] = state
-    # pass login status
-    logged_in = 'username' in login_session
-
+    # TODO: refresh token here
+    # pass user id if logged in, else set to false
+    logged_in = 'user_id' in login_session
+    if logged_in:
+        logged_in = login_session['user_id']
     return flask_render_template(logged_in=logged_in,
                                  STATE=state,
                                  *args, **kwargs)
@@ -141,7 +143,6 @@ def add_item_handler(category_name, new_item_title='', new_item_desc=''):
 
 @app.route('/item/edit/<category_name>/<curr_item_title>', methods=['GET', 'POST'])
 @check_logged_in
-# @decs.item_title_exists
 @decs.category_name_exists
 def edit_item_handler(category_name, curr_item_title, new_item_title='', new_item_desc=''):
     # What are we going to change?
@@ -190,7 +191,6 @@ def edit_item_handler(category_name, curr_item_title, new_item_title='', new_ite
 
 @app.route('/item/delete/<category_name>/<item_title>')
 @check_logged_in
-# @decs.item_title_exists
 @decs.category_name_exists
 def delete_item_handler(category_name, item_title):
     # What are we going to change?
@@ -207,7 +207,7 @@ def delete_item_handler(category_name, item_title):
         category_name=category_name))
 
 
-@app.route('/rest/catalogue/get')
+@app.route('/rest/catalogue')
 def rest_get_catalogue_handler():
     """Returns JSON of the whole catalogue"""
     cats = category.get_all_categories()
@@ -218,6 +218,9 @@ def rest_get_catalogue_handler():
     return jsonify(result)
 
 
+####################################
+# AUTH FUNCTIONS
+####################################
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
     # Validate state token
@@ -301,7 +304,6 @@ def gconnect():
     output += 'Welcome, '
     output += login_session['username']
     output += '!'
-    print "Authentication successful"
     return output
 
 
@@ -318,8 +320,10 @@ def disconnect():
             return response
         url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
         h = httplib2.Http()
-        result = h.request(url, 'GET')[0]
-        if result['status'] != '200':
+        result_header, result_content = h.request(url, 'GET')
+        result_content = json.loads(result_content)
+        # Log them out if the token is no longer valid
+        if result_header['status'] != '200' and result_content['error'] != 'invalid_token':
             # For whatever reason, the given token was invalid.
             response = make_response(
                 json.dumps('Failed to revoke token for given user.'), 400)
@@ -336,6 +340,7 @@ def disconnect():
         return redirect(url_for('category_list_handler'))
     else:
         return redirect(url_for('category_list_handler'))
+
 
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
