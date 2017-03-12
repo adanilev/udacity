@@ -3,13 +3,11 @@ from flask import render_template as flask_render_template
 from flask import make_response, flash, abort
 from flask import session as login_session
 from functools import wraps
-from database_setup import User, Category, Item
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 import requests
 import httplib2
 import json
-import re
 import random
 import string
 import category

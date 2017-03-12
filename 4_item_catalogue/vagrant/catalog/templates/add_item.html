@@ -1,0 +1,38 @@
+{% extends "catalogue_base.html" %}
+
+{% block pagecontent %}
+
+  <form class="form-horizontal" method='POST'>
+    <div class="form-group">
+      <label for="new-item-title" class="col-sm-2 control-label">Title</label>
+      <div class="col-sm-10">
+        <input required type="text" class="form-control" name="new-item-title" id="new-item-title" maxlength="80" placeholder="Item Title" value="{{ new_item_title }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="new-item-desc" class="col-sm-2 control-label">Description</label>
+      <div class="col-sm-10">
+        <textarea class="form-control" rows="10" name="new-item-desc" id="new-item-desc" maxlength="250" placeholder="Item Description">{{ new_item_desc }}</textarea>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="new-item-cat" class="col-sm-2 control-label">Category</label>
+      <div class="col-sm-10">
+        <select class="form-control" name="new-item-cat" id="new-item-cat">
+          {% for cat in all_cats %}
+            <option value="{{ cat.id }}" {% if cat.name == category_name %}selected="selected"{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="col-sm-offset-2 col-sm-10">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a class="btn btn-default" href="{{url_for('items_in_category_handler', category_name=category_name)}}" role="button">Cancel</a>
+        <p class="text-danger">{{ error }}</p>
+      </div>
+    </div>
+  </form>
+
+
+{% endblock %}
