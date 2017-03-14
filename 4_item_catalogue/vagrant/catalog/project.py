@@ -54,6 +54,19 @@ def check_logged_in(function):
     return wrapper
 
 
+def check_owns_item(function):
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        itm = item.get_item(category_name=kwargs['category_name'],
+                            title=kwargs['item_title'])
+
+        if itm.owner_id == login_session['user_id']:
+            return function(*args, **kwargs)
+        else:
+            return redirect(url_for('category_list_handler'))
+    return wrapper
+
+
 ####################################
 # HANDLERS
 ####################################
@@ -141,12 +154,14 @@ def add_item_handler(category_name, new_item_title='', new_item_desc=''):
                                new_item_desc=new_item_desc)
 
 
-@app.route('/item/edit/<category_name>/<curr_item_title>', methods=['GET', 'POST'])
+@app.route('/item/edit/<category_name>/<item_title>', methods=['GET', 'POST'])
 @check_logged_in
 @decs.category_name_exists
-def edit_item_handler(category_name, curr_item_title, new_item_title='', new_item_desc=''):
+@check_owns_item
+def edit_item_handler(category_name, item_title,
+                      new_item_title='', new_item_desc=''):
     # What are we going to change?
-    item_to_edit = item.get_item(title=curr_item_title,
+    item_to_edit = item.get_item(title=item_title,
                                  category_name=category_name)
 
     # TODO: get this working via the decorator
@@ -192,6 +207,7 @@ def edit_item_handler(category_name, curr_item_title, new_item_title='', new_ite
 @app.route('/item/delete/<category_name>/<item_title>')
 @check_logged_in
 @decs.category_name_exists
+@check_owns_item
 def delete_item_handler(category_name, item_title):
     # What are we going to change?
     item_to_delete = item.get_item(title=item_title,
@@ -244,6 +260,8 @@ def gconnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
+
+    # Store the access token in the session for later use.
     login_session['access_token'] = credentials.access_token
 
     url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
@@ -275,11 +293,11 @@ def gconnect():
     stored_access_token = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_access_token is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'), 200)
+        response = make_response(
+            json.dumps('Current user is already connected.'), 200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
-    # Store the access token in the session for later use.
     login_session['gplus_id'] = gplus_id
 
     # Get user info
@@ -318,12 +336,14 @@ def disconnect():
                 json.dumps('Current user not connected.'), 401)
             response.headers['Content-Type'] = 'application/json'
             return response
-        url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+        url = ('https://accounts.google.com/o/oauth2/revoke?token=%s'
+               % access_token)
         h = httplib2.Http()
         result_header, result_content = h.request(url, 'GET')
         result_content = json.loads(result_content)
         # Log them out if the token is no longer valid
-        if result_header['status'] != '200' and result_content['error'] != 'invalid_token':
+        if (result_header['status'] != '200' and
+                result_content['error'] != 'invalid_token'):
             # For whatever reason, the given token was invalid.
             response = make_response(
                 json.dumps('Failed to revoke token for given user.'), 400)

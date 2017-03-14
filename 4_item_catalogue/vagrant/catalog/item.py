@@ -15,16 +15,18 @@ session = DBSession()
 
 # Item CRUD methods
 def create_item(title, description, category_id, owner_id):
-    '''Create an item. Don't allow two items to have same title and category'''
+    """Create an item. Don't allow two items to have same title and category"""
     # Check if Item already exists (same title and category)
     if get_item(title=title, category_id=category_id):
-        dprint(1, "create_item failed. Item with title %s and category_id %s already exists" % (title, category_id))
+        dprint(1, "create_item failed. Item with title %s and category_id %s"
+                  "already exists" % (title, category_id))
         return None
     # If not, create it and return id
     new_item = Item(title=title, description=description,
                     category_id=category_id, owner_id=owner_id)
     add_to_db(new_item)
-    dprint(3, "Created Item: id=%s, title=%s, category_id=%s" % (new_item.id, new_item.title, new_item.category_id))
+    dprint(3, "Created Item: id=%s, title=%s, category_id=%s" %
+           (new_item.id, new_item.title, new_item.category_id))
     return new_item.id
 
 
@@ -41,14 +43,19 @@ def get_item(id='', title='', category_id='', category_name=''):
         if not category_id:
             category_id = category.get_category(name=category_name).id
         # search by name
-        if session.query(Item.id).filter_by(title=title, category_id=category_id).scalar() is None:
+        if (session.query(Item.id)
+                   .filter_by(title=title,
+                              category_id=category_id).scalar()) is None:
             # return None if it doesn't exist
             return None
         else:
-            return session.query(Item).filter_by(title=title, category_id=category_id).one()
+            return (session.query(Item)
+                           .filter_by(title=title,
+                                      category_id=category_id).one())
     else:
-        dprint(1, "Insufficient parameters passed to get_item. id=%s, title=%s, category_id=%s" % (id, title, category_id))
-        return ''
+        dprint(1, "Insufficient parameters passed to get_item."
+                  "id=%s, title=%s, category_id=%s" % (id, title, category_id))
+        return None
 
 
 def get_items_in_category(category_id=''):

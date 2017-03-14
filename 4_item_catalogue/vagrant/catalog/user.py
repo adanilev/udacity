@@ -28,3 +28,7 @@ def get_user_id(email):
         return user.id
     except:
         return None
+
+
+def get_all_users():
+    return session.query(User).all()
