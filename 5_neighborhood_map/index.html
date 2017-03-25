@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neighborhood Map</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+    <header class="panel" id="header-panel">
+        <a id="menu-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M2 6h20v3H2zm0 5h20v3H2zm0 5h20v3H2z"/>
+            </svg>
+        </a>
+        <h1>Fancy Map App</h1>
+    </header>
+
+    <div class="container">
+        <div class="panel" id="side-panel">
+            <div id="side-panel-content">
+                <h3 data-bind="text: sidePanelHeading">Loading...</h3>
+                <p data-bind="text: testVar"></p>
+                Filter by available cuisines:<br>
+                <select data-bind="options: cuisineList, value: selectedCuisine"></select>
+                <ul data-bind="foreach: filteredRestaurantList">
+                    <li data-bind="text: name"></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="panel" id="map-panel">
+        </div>
+
+    </div>
+
+
+    <script>
+        /*
+         * Open the drawer when the menu icon is clicked.
+         */
+        var menuIcon = document.querySelector('#menu-icon');
+        var sidePanel= document.querySelector('#side-panel');
+        var mapPanel= document.querySelector('#map-panel');
+
+
+        menuIcon.addEventListener('click', function(e) {
+            sidePanel.classList.toggle('side-closed');
+            mapPanel.classList.toggle('side-closed');
+            e.stopPropagation();
+        });
+
+
+    </script>
+
+
+    <script type='text/javascript' src='bower_components/jquery/dist/jquery.min.js'></script>
+    <script type='text/javascript' src='bower_components/knockout/dist/knockout.js'></script>
+    <script type='text/javascript' src="js/app.js"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBneI2N12TcCGF12TBmqRQQjGAOV6-xAlc&v=3&callback=initLocations">
+    </script>
+</body>
+</html>
