@@ -29,7 +29,7 @@ function initMap() {
 
     mapConfig.largeInfowindow = new google.maps.InfoWindow();
     mapConfig.bounds = new google.maps.LatLngBounds();
-
+    clearTimeout(gmapLoadError);
     initRestaurants();
 }
 
