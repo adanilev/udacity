@@ -10,6 +10,8 @@ var restaurants = [];
 var cuisines = [];
 var markers = [];
 
+var viewModel;
+
 //Sydney
 var mapLat = -33.910533;
 var mapLng = 151.15634;
@@ -20,7 +22,7 @@ var mapLng = 151.15634;
 
 function initMap() {
     // Constructor creates a new map - only center and zoom are required.
-    map = new google.maps.Map(document.getElementById('map-panel'), {
+    map = new google.maps.Map(document.getElementById('map-canvas'), {
         center: {lat: mapLat, lng: mapLng},
         zoom: 15
     });
@@ -47,7 +49,6 @@ function initRestaurants() {
         },
         success: function(res) {
             var zomatoResponse = res.nearby_restaurants;
-
             // Create a simpler object with just the data we need
             for (var i=0; i < zomatoResponse.length; i++) {
                 var zRest = zomatoResponse[i].restaurant;
@@ -56,6 +57,7 @@ function initRestaurants() {
                     name: zRest.name,
                     cuisines: zRest.cuisines,
                     address: zRest.location.address,
+                    avgCostForTwo: zRest.average_cost_for_two,
                     geocode: {
                         lat: Number(zRest.location.latitude),
                         lng: Number(zRest.location.longitude)
@@ -66,15 +68,13 @@ function initRestaurants() {
                 restaurants.push(restaurant);
             }
 
-            console.log('restaurants object');
-            console.log(restaurants);
-
             map.fitBounds(mapConfig.bounds);
             initCuisines();
         },
         error: function(err) {
-            //TODO: make the UI show there was an error
-            console.log('There was an error calling Zomato\'s API' + err.responseText);
+            var errorMsg = '<div class="alert alert-danger" role="alert">Whoops!! <br><br>There was an error ' +
+                'retrieving the restaurant details. Please try again later.<br><br>:(';
+            $('#side-panel').html(errorMsg);
         }
     });
 }
@@ -86,13 +86,13 @@ function createMarker(restaurant) {
         position: restaurant.geocode,
         title: restaurant.name,
         animation: google.maps.Animation.DROP,
-        id: Date.now()
+        id: restaurant.name
     });
 
     // Create an onclick event to open an infowindow at each marker.
     marker.addListener('click', function() {
-        //TODO: get this infoWindow working - need to create this function
-        populateInfoWindow(this, mapConfig.largeInfowindow);
+        viewModel.selectedRestaurant(restaurant.name);
+        populateInfoWindow(restaurant, mapConfig.largeInfowindow);
     });
 
     mapConfig.bounds.extend(marker.position);
@@ -121,12 +121,39 @@ function initCuisines() {
 }
 
 
+// This function populates the infowindow when the marker is clicked. We'll only allow
+// one infowindow which will open at the marker that is clicked, and populate based
+// on that markers position.
+function populateInfoWindow(restaurant, infowindow) {
+    var marker = restaurant.marker;
+    // Check to make sure the infowindow is not already opened on this marker.
+    if (infowindow.marker != marker) {
+        var contentHtml = '<strong>' + restaurant.name + '</strong><br>' +
+            'Average cost for two is $' + restaurant.avgCostForTwo + '<br><br>' +
+            restaurant.address;
+
+        infowindow.marker = marker;
+        infowindow.setContent(contentHtml);
+        infowindow.open(map, marker);
+        marker.setAnimation(google.maps.Animation.DROP);
+
+        // Make sure the marker property is cleared if the infowindow is closed.
+        infowindow.addListener('closeclick',function(){
+            infowindow.setMarker = null;
+        });
+    }
+}
+
+
+function getRestaurantByName(restName) {
+    return restaurants.find(function (restaurant) {
+        return restaurant.name === restName;
+    });
+}
+
+
 // Knockout
 function knockItOut() {
-
-    // The Model
-    // ???
-
     // The ViewModel
     var ViewModel = function () {
 
@@ -151,11 +178,15 @@ function knockItOut() {
             });
         }.bind(this));
 
-        this.testVar = '';
+        this.selectedRestaurant = ko.observable();
+
+        this.selectedRestaurant.subscribe(function (selection) {
+            populateInfoWindow(getRestaurantByName(selection), mapConfig.largeInfowindow);
+        }.bind(this));
 
     };
 
-    var viewModel = new ViewModel();
+    viewModel = new ViewModel();
 
     ko.applyBindings(viewModel);
 }

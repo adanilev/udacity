@@ -2,62 +2,60 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Neighborhood Map</title>
+    <title>Fancy Map</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
     <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
 
-    <header class="panel" id="header-panel">
-        <a id="menu-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path d="M2 6h20v3H2zm0 5h20v3H2zm0 5h20v3H2z"/>
-            </svg>
-        </a>
-        <h1>Fancy Map App</h1>
-    </header>
-
     <div class="container">
-        <div class="panel" id="side-panel">
-            <div id="side-panel-content">
-                <h3 data-bind="text: sidePanelHeading">Loading...</h3>
-                <p data-bind="text: testVar"></p>
-                Filter by available cuisines:<br>
-                <select data-bind="options: cuisineList, value: selectedCuisine"></select>
-                <ul data-bind="foreach: filteredRestaurantList">
-                    <li data-bind="text: name"></li>
-                </ul>
+
+        <header class="row" id="header-panel">
+            <div class="col-xs-1">
+                <h2 class="glyphicon glyphicon-menu-hamburger" id="menu-icon"></h2>
+            </div>
+            <div class="col-xs-11">
+                <h1 id="header-title">Fancy Map</h1>
+            </div>
+        </header>
+
+        <div class="row" id="content-row">
+            <div class="col-md-3 collapse in" id="side-panel">
+                <div id="side-panel-content">
+                    <h3 data-bind="text: sidePanelHeading">Loading...</h3>
+                    Filter by available cuisines:<br>
+                    <select class="form-control" data-bind="options: cuisineList, value: selectedCuisine"></select>
+
+                    <hr>
+
+                    <div class="restaurant-radio-list" data-bind="foreach: filteredRestaurantList">
+                        <div class="radio">
+                            <label>
+                                <input data-bind="checked: $parent.selectedRestaurant, attr: {id: name, value: name}" type="radio" name="restaurantRadios">
+                                <span data-bind="text: name"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <p>
+                        <small>Restaurant data provided by <a href="https://www.zomato.com">Zomato</a></small>
+                    </p>
+
+                </div>
+            </div>
+
+            <div class="col-md-9" id="map-panel">
+                <div id="map-canvas"></div>
             </div>
         </div>
-
-        <div class="panel" id="map-panel">
-        </div>
-
     </div>
-
-
-    <script>
-        /*
-         * Open the drawer when the menu icon is clicked.
-         */
-        var menuIcon = document.querySelector('#menu-icon');
-        var sidePanel= document.querySelector('#side-panel');
-        var mapPanel= document.querySelector('#map-panel');
-
-
-        menuIcon.addEventListener('click', function(e) {
-            sidePanel.classList.toggle('side-closed');
-            mapPanel.classList.toggle('side-closed');
-            e.stopPropagation();
-        });
-
-
-    </script>
-
 
     <script type='text/javascript' src='bower_components/jquery/dist/jquery.min.js'></script>
     <script type='text/javascript' src='bower_components/knockout/dist/knockout.js'></script>
+    <script type='text/javascript' src='js/layout.js'></script>
     <script type='text/javascript' src="js/app.js"></script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBneI2N12TcCGF12TBmqRQQjGAOV6-xAlc&v=3&callback=initMap">
-    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBneI2N12TcCGF12TBmqRQQjGAOV6-xAlc&v=3&callback=initMap"></script>
 </body>
 </html>
