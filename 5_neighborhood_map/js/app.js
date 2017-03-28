@@ -29,13 +29,14 @@ function initMap() {
 
     mapConfig.largeInfowindow = new google.maps.InfoWindow();
     mapConfig.bounds = new google.maps.LatLngBounds();
-    clearTimeout(gmapLoadError);
     initRestaurants();
 }
 
 
 // Get the locations from Zomato
 function initRestaurants() {
+    //TODO: Check data before saving and put in appropriate error message if req'd
+    // https://www.sitepoint.com/shorthand-javascript-techniques/
     // Get the restaurants near the geocode above from the Zomato API
     $.ajax({
         url: 'https://developers.zomato.com/api/v2.1/geocode',
@@ -72,6 +73,7 @@ function initRestaurants() {
             initCuisines();
         },
         error: function(err) {
+            //TODO: handle the error msg with knockout instead of mixing in jquery
             var errorMsg = '<div class="alert alert-danger" role="alert">Whoops!! <br><br>There was an error ' +
                 'retrieving the restaurant details. Please try again later.<br><br>:(';
             $('#side-panel').html(errorMsg);
@@ -189,4 +191,10 @@ function knockItOut() {
     viewModel = new ViewModel();
 
     ko.applyBindings(viewModel);
+}
+
+function gmapsError() {
+    var errorMsg = '<div class="alert alert-danger" role="alert">Whoops!! <br><br>There was an error ' +
+        'loading Google Maps. Please try again later.<br><br>:(';
+    $('#map-panel').html(errorMsg);
 }
