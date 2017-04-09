@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-
 import webapp2
 import jinja2
 import re
@@ -22,23 +21,50 @@ import random
 import string
 import hashy
 import time
+from functools import wraps
 
 from google.appengine.ext import db
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
+jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
 
 
-def checkSecureCookie(cookieVal):
-    '''Confirms it's a valid cookie, returns None if not'''
-    #if you got something
-    if cookieVal:
-        #break it into bits: [val, hash, salt]
-        cookieVal = cookieVal.split("|")
-        #check it's valid
-        if isValidHash(cookieVal[0],cookieVal[1],cookieVal[2]):
-            return cookieVal[0]
+##############################################################
+# Decorators
+##############################################################
+def check_post_exists(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if BlogEntry.get_by_id(int(kwargs['post_id']), parent=fancy_blog):
+            return fn(self, *args, **kwargs)
+        else:
+            return self.handle_404()
+    return wrapper
+
+
+def user_logged_in(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if self.currUser:
+            return fn(self, *args, **kwargs)
+        else:
+            return self.redirect('/signup')
+    return wrapper
+
+
+##############################################################
+# Global function
+##############################################################
+def check_secure_cookie(cookie_val):
+    """Confirms it's a valid cookie, returns None if not"""
+    # If you got something
+    if cookie_val:
+        # Break it into bits: [val, hash, salt]
+        cookie_val = cookie_val.split("|")
+        # Then check it's valid
+        if is_valid_hash(cookie_val[0], cookie_val[1], cookie_val[2]):
+            return cookie_val[0]
 
 
 ##############################################################
@@ -56,19 +82,23 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
-    def setCookie(self, user_id):
-        cookieVal = '%s|%s' % (str(user_id), hashAndSalt(str(user_id)))
+    def set_cookie(self, user_id):
+        cookie_val = '%s|%s' % (str(user_id), hash_and_salt(str(user_id)))
         self.response.headers.add_header('Set-Cookie',
-                                         'user_id=%s; Path=/' % cookieVal)
+                                         'user_id=%s; Path=/' % cookie_val)
 
-    def readCookie(self, cookieName):
-        cookie_val = self.request.cookies.get(cookieName)
-        return cookie_val and checkSecureCookie(cookie_val)
+    def read_cookie(self, cookie_name):
+        cookie_val = self.request.cookies.get(cookie_name)
+        return cookie_val and check_secure_cookie(cookie_val)
 
     def initialize(self, *a, **kw):
         webapp2.RequestHandler.initialize(self, *a, **kw)
-        uid = self.readCookie('user_id')
+        uid = self.read_cookie('user_id')
         self.currUser = uid and User.get_by_id(int(uid))
+
+    def handle_404(self):
+        self.response.set_status(404)
+        self.response.write('Error 404: Page not found.')
 
 
 class MainPage(Handler):
@@ -77,140 +107,116 @@ class MainPage(Handler):
 
 
 class BlogHandler(Handler):
-    """Common Handler for any page that shows a blog post"""
+    """This class has common functions used by other handlers that deal with
+    blog entries. It also handles comment functionality.
+    """
+    errs = {}
+
+    def __init__(self, *args, **kwargs):
+        self.errors = {}
+        super(BlogHandler, self).__init__(*args, **kwargs)
+
+    """Deal with comments"""
     def get(self):
-        self.initBlogErrors()
-        #what link was clicked? Ideally would have done this via post but didn't
-        #want to mess around with the JavaScript. Should hash at least
-        likePost = self.request.get("likePost")
-        editPost = self.request.get("editPost")
-        deletePost = self.request.get("deletePost")
-        deleteComment = self.request.get("deleteComment")
+        self.init_blog_errors()
+        # What link was clicked? Ideally would have done this via post but
+        # didn't want to mess around with the JavaScript. Should hash at least
+        delete_comment = self.request.get("delete_comment")
 
-
-        #what action to handle?
-        if likePost:
+        # what action to handle?
+        if delete_comment:
             if not self.currUser:
-                self.redirect('/signup')
-                return
-            likePost = int(likePost)
-            #liking their own post?
-            if self.currUser.key().id() == BlogEntry.get_by_id(likePost).authorID:
-                self.errors['errorOnPost'] = likePost
-                self.errors['likeError'] = "Sorry narcissist, you can't like your own posts"
-            else:
-                #increment numLikes
-                be = BlogEntry.get_by_id(likePost)
-                be.numLikes += 1
-                be.put()
-                time.sleep(0.5)
-        elif editPost:
-            if not self.currUser:
-                self.redirect('/signup')
-                return
-            editPost = int(editPost)
-            if self.currUser.key().id() != BlogEntry.get_by_id(editPost).authorID:
-                self.errors['errorOnPost'] = editPost
-                self.errors['editError'] = "You can only edit your own posts"
-            else:
-                self.redirect('/blog/newpost?editPost=' + str(editPost))
-        elif deletePost:
-            if not self.currUser:
-                self.redirect('/signup')
-                return
-            deletePost = int(deletePost)
-            if self.currUser.key().id() != BlogEntry.get_by_id(deletePost).authorID:
-                self.errors['errorOnPost'] = deletePost
-                self.errors['deleteError'] = "You can only delete your own posts"
-            else:
-                #TODO: put in a "are you sure" dialogue
-                BlogEntry.get_by_id(deletePost).delete()
-                time.sleep(1)
-        elif deleteComment:
-            if not self.currUser:
-                #User is not logged in
+                # User is not logged in
                 self.redirect('/signup')
                 return
             else:
-                #They are logged in, so check the comment to delete exists
-                deleteComment = int(deleteComment)
-                expandPost = int(self.request.get("postID"))
-                if Comment.get_by_id(deleteComment):
-                    #Are they deleting their own comment?
-                    if self.currUser.key().id() == Comment.get_by_id(deleteComment).authorID:
-                        #Delete the comment and show a success message
-                        Comment.get_by_id(deleteComment).delete()
+                # They are logged in, so check the comment to delete exists
+                delete_comment = int(delete_comment)
+                expand_post = int(self.request.get("post_id"))
+                if Comment.get_by_id(delete_comment):
+                    # Are they deleting their own comment?
+                    if self.currUser.key().id() == \
+                            Comment.get_by_id(delete_comment).author_id:
+                        # Delete the comment and show a success message
+                        Comment.get_by_id(delete_comment).delete()
+                        self.errs['error_on_post'] = delete_comment
                         time.sleep(1)
-                        self.errors['errorOnPost'] = deleteComment
-                        self.errors['commentError'] = "Comment deleted!"
-                        self.renderBlogPage(expandPost=expandPost)
+                        self.errs['comment_error'] = "Comment deleted!"
+                        self.render_blog_page(expand_post=expand_post)
                     else:
-                        #Show error if not their comment
-                        self.errors['errorOnPost'] = deleteComment
-                        self.errors['commentError'] = "You can only delete your own comments!"
-                        self.renderBlogPage(expandPost=expandPost)
+                        # Show error if not their comment
+                        self.errs['error_on_post'] = delete_comment
+                        self.errs['comment_error'] = "You can only delete" \
+                                                     " your own comments!"
+                        self.render_blog_page(expand_post=expand_post)
                         return
                 else:
-                    #else the comment doesn't exist, so show an error
-                    #TODO should check for the postID too....
-                    self.errors['errorOnPost'] = deleteComment
-                    self.errors['commentError'] = "Error: that comment doesn't exist!"
-                    self.renderBlogPage(expandPost=expandPost)
+                    # else the comment doesn't exist, so show an error
+                    # TODO should check for the post_id too....
+                    self.errs['error_on_post'] = delete_comment
+                    self.errs['comment_error'] = "Error: that comment " \
+                                                   "doesn't exist!"
+                    self.render_blog_page(expand_post=expand_post)
                     return
 
+        # finally, render the page
+        self.render_blog_page()
 
-        #finally, render the page
-        self.renderBlogPage()
-
+    @user_logged_in
     def post(self):
-        #if here, someone added a comment
-        self.initBlogErrors()
-        expandPost = int(self.request.get("postID"))
-        if self.currUser:
-            # check they entered something
-            if self.request.get("comment"):
-                self.addComment()
-            else:
-                self.errors['errorOnPost'] = int(self.request.get("postID"))
-                self.errors['commentError'] = "Please enter a comment"
+        # if here, someone added a comment
+        self.init_blog_errors()
+        expand_post = int(self.request.get("post_id"))
+        # check they entered something
+        if self.request.get("comment"):
+            self.add_comment()
         else:
-            self.errors['errorOnPost'] = int(self.request.get("postID"))
-            self.errors['commentError'] = "Please login to add a comment"
-        self.renderBlogPage(expandPost=expandPost)
+            self.errs['error_on_post'] = int(self.request.get("post_id"))
+            self.errs['comment_error'] = "Please enter a comment"
+        self.render_blog_page(expand_post=expand_post)
 
-    def renderBlogPage(self, posts='', expandPost=''):
+    def render_blog_page(self, posts='', expand_post=''):
         """Convenience method to render any page showing a blog entry"""
         if not posts:
-            posts = self.getPosts()
-        self.render("blog_posts.html", posts=posts, expandPost=expandPost,
-                                       currUser=self.currUser, Comment=Comment,
-                                       User=User, errors=self.errors)
+            posts = self.get_posts()
 
-    def addComment(self):
+        self.render("blog_posts.html",
+                    posts=posts, expand_post=expand_post,
+                    currUser=self.currUser, Comment=Comment, User=User,
+                    Like=Like, errors=self.errs)
+        self.errs.clear()
+
+    def add_comment(self):
         comment = self.request.get("comment")
-        postID = int(self.request.get("postID"))
-        authorID = int(self.currUser.key().id())
-        Comment.addComment(comment, postID, authorID)
-        #TODO: find a more elegant way to deal with this instead of sleeping.
-        #The latest comment was not being returned immediately when reloading
+        post_id = int(self.request.get("post_id"))
+        author_id = int(self.currUser.key().id())
+        Comment.add_comment(comment, post_id, author_id)
+        # TODO: find a more elegant way to deal with this instead of sleeping.
+        # The latest comment was not being returned immediately when reloading
         time.sleep(1)
 
-    def getPosts(self):
-        postObjs = BlogEntry.all().order('-created')
+    def get_posts(self):
+        post_objs = BlogEntry.all().ancestor(fancy_blog).order('-created')
         posts = []
-        for post in postObjs:
+        for post in post_objs:
             posts.append(post)
         return posts
 
-    def initBlogErrors(self):
-        """Avoid errors (pun intended) by creating an array now and setting all
-        possible errors to blank"""
+    def init_blog_errors(self):
+        """Initialise error message list"""
         self.errors = {}
-        self.errors['errorOnPost'] = ''
-        self.errors['commentError'] = ''
-        self.errors['likeError'] = ''
-        self.errors['editError'] = ''
-        self.errors['deleteError'] = ''
+        self.errors['error_on_post'] = ''
+        self.errors['comment_error'] = ''
+        self.errors['like_error'] = ''
+        self.errors['edit_error'] = ''
+        self.errors['delete_error'] = ''
+
+    def user_owns_post(self, blog_entry):
+        """Assumes post exists. Returns true if currUser owns blog_entry"""
+        if blog_entry.author_id == self.currUser.key().id():
+            return True
+        else:
+            return False
 
 
 ##############################################################
@@ -223,59 +229,69 @@ class BlogNewPostHandler(BlogHandler):
         if not self.currUser:
             self.redirect('/signup')
         else:
-            newPostArgs = {'subject': '', 'content': '', 'error': ''}
-            editPost = self.request.get("editPost")
-            if editPost:
-                #if wanting to edit the post
-                editPost = int(editPost)
-                #double check identity
-                if self.currUser.key().id() == BlogEntry.get_by_id(editPost).authorID:
-                    newPostArgs['subject'] = BlogEntry.get_by_id(editPost).subject
-                    newPostArgs['content'] = BlogEntry.get_by_id(editPost).content
+            new_post_args = {'subject': '', 'content': '', 'error': ''}
+            edit_post = self.request.get("edit_post")
+            if edit_post:
+                # if wanting to edit the post
+                edit_post = int(edit_post)
+                # double check identity
+                if self.currUser.key().id() == \
+                        BlogEntry.get_by_id(
+                            edit_post, parent=fancy_blog).author_id:
+                    new_post_args['subject'] = BlogEntry.\
+                        get_by_id(edit_post, parent=fancy_blog).subject
+                    new_post_args['content'] = BlogEntry.\
+                        get_by_id(edit_post, parent=fancy_blog).content
                 else:
-                    newPostArgs['error'] = "You can only edit your own posts"
+                    new_post_args['error'] = "You can only edit your own posts"
 
-            self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+            self.render("new_post.html", new_post_args=new_post_args,
+                        currUser=self.currUser)
 
     def post(self):
-        #Are they logged in?
+        # Are they logged in?
         if not self.currUser:
             self.redirect('/signup')
         else:
-            #Get data the user input
-            newPostArgs = {}
-            newPostArgs['subject'] = self.request.get("subject")
-            newPostArgs['content'] = self.request.get("content")
-            newPostArgs['error'] = ''
-            #If it's a valid post
-            if newPostArgs['subject'] and newPostArgs['content']:
-                #is it an update?
-                if self.request.get("editPost"):
-                    be = BlogEntry.get_by_id(int(self.request.get("editPost")))
-                    be.subject = newPostArgs['subject']
-                    be.content = newPostArgs['content']
+            # Get data the user input
+            new_post_args = {}
+            new_post_args['subject'] = self.request.get("subject")
+            new_post_args['content'] = self.request.get("content")
+            new_post_args['error'] = ''
+            # If it's a valid post
+            if new_post_args['subject'] and new_post_args['content']:
+                # is it an update?
+                if self.request.get("edit_post"):
+                    be = BlogEntry.get_by_id(
+                        int(self.request.get("edit_post")), parent=fancy_blog)
+                    be.subject = new_post_args['subject']
+                    be.content = new_post_args['content']
                 else:
-                    #else create a new entry
-                    be = BlogEntry(subject=newPostArgs['subject'],
-                                   content=newPostArgs['content'],
-                                   authorID = self.currUser.key().id())
+                    # else create a new entry
+                    be = BlogEntry(parent=fancy_blog,
+                                   subject=new_post_args['subject'],
+                                   content=new_post_args['content'],
+                                   author_id=self.currUser.key().id())
                 be.put()
-                #And then redirect to the single post page
+                # And then redirect to the single post page
                 self.redirect('/blog/' + str(be.key().id()))
-                self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+                self.render("new_post.html", new_post_args=new_post_args,
+                            currUser=self.currUser)
             else:
-                newPostArgs['error'] = "Please complete both fields to post!"
-                self.render("new_post.html", newPostArgs=newPostArgs, currUser=self.currUser)
+                new_post_args['error'] = "Please complete both fields to post!"
+                self.render("new_post.html", new_post_args=new_post_args,
+                            currUser=self.currUser)
 
 
 class BlogEntryHandler(BlogHandler):
     def get(self, entry_id):
-        self.initBlogErrors()
-        post = BlogEntry.get_by_id(int(entry_id))
+        self.init_blog_errors()
+        post = BlogEntry.get_by_id(int(entry_id), parent=fancy_blog)
         if post:
-            self.renderBlogPage([post])
+            self.render_blog_page([post])
         else:
             self.error(404)
+
 
 class SignupHandler(Handler):
     def get(self):
@@ -292,14 +308,14 @@ class SignupHandler(Handler):
                    "emailError": "",
                    "success": ""})
 
-        values = verifySignupInput(values)
+        values = verify_signup_input(values)
 
         if values["success"]:
-            user_id = createUser(values)
-            self.setCookie(user_id)
+            user_id = create_user(values)
+            self.set_cookie(user_id)
             self.redirect("/welcome")
         else:
-            #blank the passwords and let them try again
+            # blank the passwords and let them try again
             values["password"] = ""
             values["verify"] = ""
             self.render("signup.html", **values)
@@ -309,49 +325,62 @@ class WelcomeHandler(BlogHandler):
     def get(self):
         if self.currUser:
             username = self.currUser.username
-            self.render("welcome.html",username=username, currUser=self.currUser)
+            self.render("welcome.html", username=username,
+                        currUser=self.currUser)
         else:
             self.redirect('/signup')
+
 
 class EditCommentHandler(BlogHandler):
     def get(self):
         if self.currUser:
-            commentID = self.request.get("commentID")
-            if commentID:
-                commentID = int(commentID)
-                if self.currUser.key().id() == Comment.get_by_id(commentID).authorID:
-                    #get the comment
-                    commentText = Comment.get_by_id(commentID).commentText
-                    editCommentError = ''
-                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+            comment_id = self.request.get("comment_id")
+            if comment_id:
+                comment_id = int(comment_id)
+                if self.currUser.key().id() == Comment.\
+                        get_by_id(comment_id).author_id:
+                    # get the comment
+                    comment_text = Comment.get_by_id(comment_id).comment_text
+                    edit_comment_error = ''
+                    self.render("editcomment.html", comment_text=comment_text,
+                                edit_comment_error=edit_comment_error)
                 else:
-                    commentText = ''
-                    editCommentError = 'Whoa there, Nelly! You can only edit your own comments.'
-                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+                    comment_text = ''
+                    edit_comment_error = 'Whoa there, Nelly! You can only ' \
+                                         'edit your own comments.'
+                    self.render("editcomment.html", comment_text=comment_text,
+                                edit_comment_error=edit_comment_error)
         else:
             self.redirect('/signup')
 
     def post(self):
         if self.currUser:
-            commentID = self.request.get("commentID")
-            if commentID:
-                commentID = int(commentID)
-                if self.currUser.key().id() == Comment.get_by_id(commentID).authorID:
-                    commentText = self.request.get("commentText")
-                    if commentText:
-                        c = Comment.get_by_id(commentID)
-                        c.commentText = commentText
-                        c.put();
+            comment_id = self.request.get("comment_id")
+            if comment_id:
+                comment_id = int(comment_id)
+                if self.currUser.key().id() == Comment.\
+                        get_by_id(comment_id).author_id:
+                    comment_text = self.request.get("comment_text")
+                    if comment_text:
+                        c = Comment.get_by_id(comment_id)
+                        c.comment_text = comment_text
+                        c.put()
                         time.sleep(1)
                         self.redirect('/blog')
                     else:
-                        commentText = Comment.get_by_id(commentID).commentText
-                        editCommentError = 'Please enter a comment to update.'
-                        self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+                        comment_text = Comment.get_by_id(
+                            comment_id).comment_text
+                        edit_comment_error = 'Please enter a comment ' \
+                                             'to update.'
+                        self.render("editcomment.html",
+                                    comment_text=comment_text,
+                                    edit_comment_error=edit_comment_error)
                 else:
-                    commentText = ''
-                    editCommentError = 'Whoa there, Nelly! You can only edit your own comments.'
-                    self.render("editcomment.html", commentText=commentText, editCommentError=editCommentError)
+                    comment_text = ''
+                    edit_comment_error = 'Whoa there, Nelly! You can only ' \
+                                         'edit your own comments.'
+                    self.render("editcomment.html", comment_text=comment_text,
+                                edit_comment_error=edit_comment_error)
         else:
             self.redirect('/signup')
 
@@ -361,15 +390,15 @@ class LoginHandler(Handler):
         self.render("login.html")
 
     def post(self):
-        #Get the details from the form.
+        # Get the details from the form.
         values = ({"username": self.request.get("username"),
                    "password": self.request.get("password"),
                    "loginError": ""})
 
-        #Set cookie and redirect if login details are correct.
-        if validateLogin(values):
-            user_id = getUserID(values["username"])
-            self.setCookie(user_id)
+        # Set cookie and redirect if login details are correct.
+        if validate_login(values):
+            user_id = get_user_id(values["username"])
+            self.set_cookie(user_id)
             self.redirect("/blog")
         else:
             self.render("login.html", **values)
@@ -377,138 +406,168 @@ class LoginHandler(Handler):
 
 class LogoutHandler(Handler):
     def get(self):
-        #set user_id cookie to ''
-        self.response.headers.add_header('Set-Cookie','user_id=''; Path=/')
-        #and redirect
+        # set user_id cookie to ''
+        self.response.headers.add_header('Set-Cookie', 'user_id=''; Path=/')
+        # and redirect
         self.redirect("/signup")
 
 
+class LikeHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        liked_by = User.get_by_id(self.currUser.key().id())
+        like = db.Query(Like).ancestor(blog_entry.key())\
+            .filter("liked_by =", liked_by)\
+            .get()
+
+        # Show error if they are trying to like their own post
+        if self.user_owns_post(blog_entry):
+            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
+            BlogHandler.errs['like_error'] = 'Sorry, you can''t like your ' \
+                                             'own posts. Narcissist.'
+            return self.redirect("/blog#post-" + kwargs['post_id'])
+
+        # Like it if they haven't liked before
+        if like is None:
+            like = Like(parent=blog_entry, liked_by=liked_by)
+            like.put()
+        # Unlike if they did like before
+        else:
+            like.delete()
+
+        self.redirect("/blog#post-" + kwargs['post_id'])
 
 
-##############################################################
-# Blog and Comment Models
-##############################################################
+class EditPostHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        if self.user_owns_post(blog_entry):
+            self.redirect('/blog/newpost?editPost=' + kwargs['post_id'])
+        else:
+            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
+            BlogHandler.errs['edit_error'] = 'You can only edit your own posts'
+            return self.redirect('/blog')
 
-#this defines the DataStore Model. ~an object that can be added to the DataStore
-class BlogEntry(db.Model):
-    subject = db.StringProperty(required = True)
-    content = db.TextProperty(required = True)
-    numLikes = db.IntegerProperty(default = 0)
-    authorID = db.IntegerProperty(required = True)
-    created = db.DateTimeProperty(auto_now_add = True)
-    modified = db.DateTimeProperty(auto_now = True)
 
-#define comments
-class Comment(db.Model):
-    commentText = db.TextProperty(required = True)
-    postID = db.IntegerProperty(required = True)
-    authorID = db.IntegerProperty(required = True)
-    created = db.DateTimeProperty(auto_now_add = True)
-
-    @classmethod
-    def addComment(cls, commentText, postID, authorID):
-        newComment = Comment(commentText=commentText, postID=postID,
-                             authorID=authorID)
-        newComment.put()
-
+class DeletePostHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        if self.user_owns_post(blog_entry):
+            blog_entry.delete()
+            return self.redirect('/blog')
+        else:
+            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
+            BlogHandler.errs['delete_error'] = 'You can only delete your '\
+                                               'own posts'
+            return self.redirect('/blog')
 
 
 ##############################################################
 # User and login things
 ##############################################################
 
-#regexs
+# regexs
 USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 PASSWORD_RE = re.compile(r"^.{3,20}$")
 EMAIL_RE = re.compile(r"^[\S]+@[\S]+.[\S]+$")
 
 
 class User(db.Model):
-    username = db.StringProperty(required = True)
-    password = db.TextProperty(required = True)
-    email = db.StringProperty(required = False)
-    joined = db.DateTimeProperty(auto_now_add = True)
+    username = db.StringProperty(required=True)
+    password = db.TextProperty(required=True)
+    email = db.StringProperty(required=False)
+    joined = db.DateTimeProperty(auto_now_add=True)
 
 
-def createSalt():
+def create_salt():
     letters = string.ascii_letters
     result = ""
     for i in range(5):
-        result += letters[random.randint(0,51)]
+        result += letters[random.randint(0, 51)]
     return result
 
 
-def hashAndSalt(sometext, salt=''):
+def hash_and_salt(sometext, salt=''):
     """Inputs: sometext = text to hash. salt = defaults to something random
        Outputs: hashedString|salt
        """
     if not salt:
-        salt = createSalt()
+        salt = create_salt()
     h = hmac.new(hashy.getHashKey(), '%s%s' % (sometext, salt)).hexdigest()
     return '%s|%s' % (h, salt)
 
 
-def isValidHash(value,hashed,salt):
-    rehash = hashAndSalt(value,salt)
+def is_valid_hash(value, hashed, salt):
+    rehash = hash_and_salt(value, salt)
     if rehash.split("|")[0] == hashed:
         return True
     else:
         return False
 
 
-def createUser(values):
-    new_usr = User(username = values["username"],
-                   password = hashAndSalt(values["password"]))
+def create_user(values):
+    new_usr = User(username=values["username"],
+                   password=hash_and_salt(values["password"]))
     new_usr.put()
     return new_usr.key().id()
 
 
-def getUserID(username):
+def get_user_id(username):
     """return the user_id belonging to username, if not there, return None"""
-    theuser = db.Query(User).filter("username =",username).get()
+    theuser = db.Query(User).filter("username =", username).get()
     if theuser:
         return theuser.key().id()
     else:
         return False
 
 
-def validateLogin(values):
-    #does the username exist?
-    if getUserID(values["username"]):
-        #check the password
-        db_pw = db.Query(User).filter("username =",values["username"]).get().password
-        if hashAndSalt(values["password"],db_pw.split("|")[1]) == db_pw:
+def validate_login(values):
+    # does the username exist?
+    if get_user_id(values["username"]):
+        # check the password
+        db_pw = db.Query(User).filter("username =",
+                                      values["username"]).get().password
+        if hash_and_salt(values["password"], db_pw.split("|")[1]) == db_pw:
             return True
-    #if here, username or password didn't match
+    # if here, username or password didn't match
     values["loginError"] = "Invalid login details"
     return False
 
 
-def verifySignupInput(values):
-    #innocent until proven guilty
+def verify_signup_input(values):
+    # innocent until proven guilty
     values["success"] = True
 
-    #does the username exist already?
-    if getUserID(values["username"]):
+    # does the username exist already?
+    if get_user_id(values["username"]):
         values["usernameError"] = "Sorry, that username is already taken"
         values["success"] = False
 
-    #verify username
-    if USER_RE.match(values["username"]) == None:
+    # verify username
+    if USER_RE.match(values["username"]) is None:
         values["usernameError"] = "Invalid username"
         values["success"] = False
 
-    #test the email
+    # test the email
     if values["email"]:
-        if EMAIL_RE.match(values["email"]) == None:
+        if EMAIL_RE.match(values["email"]) is None:
             values["emailError"] = "Invalid email"
             values["success"] = False
 
-    #test the password conforms
-    if PASSWORD_RE.match(values["password"]) == None:
+    # test the password conforms
+    if PASSWORD_RE.match(values["password"]) is None:
         values["passwordError"] = "Invalid password"
         values["success"] = False
-    #and match
+    # and match
     if values["password"] != values["verify"]:
         values["verifyError"] = "Passwords don't match"
         values["success"] = False
@@ -516,6 +575,44 @@ def verifySignupInput(values):
     return values
 
 
+##############################################################
+# Blog and Comment Models
+##############################################################
+
+class Blog(db.Model):
+    name = db.StringProperty(required=True)
+
+
+# this defines the DataStore Model / Object
+class BlogEntry(db.Model):
+    subject = db.StringProperty(required=True)
+    content = db.TextProperty(required=True)
+    author_id = db.IntegerProperty(required=True)
+    # author_id = db.ReferenceProperty(User)
+    created = db.DateTimeProperty(auto_now_add=True)
+    modified = db.DateTimeProperty(auto_now=True)
+
+
+class Like(db.Model):
+    liked_by = db.ReferenceProperty(User)
+
+
+# Define Comment Model
+class Comment(db.Model):
+    comment_text = db.TextProperty(required=True)
+    post_id = db.IntegerProperty(required=True)
+    author_id = db.IntegerProperty(required=True)
+    created = db.DateTimeProperty(auto_now_add=True)
+
+    @classmethod
+    def add_comment(cls, comment_text, post_id, author_id):
+        new_comment = Comment(comment_text=comment_text, post_id=post_id,
+                              author_id=author_id)
+        new_comment.put()
+
+
+# Datastore entities are descendants of this blog
+fancy_blog = Blog.get_or_insert('fancy_blog', name='Fancy Blog')
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
@@ -526,5 +623,8 @@ app = webapp2.WSGIApplication([
     ('/editcomment', EditCommentHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
     debug=True)
