@@ -154,28 +154,20 @@ class BlogHandler(Handler):
                     # else the comment doesn't exist, so show an error
                     # TODO should check for the post_id too....
                     self.errs['error_on_post'] = delete_comment
-                    self.errs['comment_error'] = "Error: that comment " \
-                                                   "doesn't exist!"
+                    self.errs['comment_error'] = "Error: that comment" \
+                                                 "doesn't exist!"
                     self.render_blog_page(expand_post=expand_post)
                     return
 
-        # finally, render the page
-        self.render_blog_page()
-
-    @user_logged_in
-    def post(self):
-        # if here, someone added a comment
-        self.init_blog_errors()
-        expand_post = int(self.request.get("post_id"))
-        # check they entered something
-        if self.request.get("comment"):
-            self.add_comment()
+        show_comments = self.request.get("showComments")
+        if show_comments:
+            self.render_blog_page(expand_post=int(show_comments))
         else:
-            self.errs['error_on_post'] = int(self.request.get("post_id"))
-            self.errs['comment_error'] = "Please enter a comment"
-        self.render_blog_page(expand_post=expand_post)
+            self.render_blog_page()
 
-    def render_blog_page(self, posts='', expand_post=''):
+
+
+    def render_blog_page(self, posts='', expand_post=0):
         """Convenience method to render any page showing a blog entry"""
         if not posts:
             posts = self.get_posts()
@@ -185,15 +177,6 @@ class BlogHandler(Handler):
                     currUser=self.currUser, Comment=Comment, User=User,
                     Like=Like, errors=self.errs)
         self.errs.clear()
-
-    def add_comment(self):
-        comment = self.request.get("comment")
-        post_id = int(self.request.get("post_id"))
-        author_id = int(self.currUser.key().id())
-        Comment.add_comment(comment, post_id, author_id)
-        # TODO: find a more elegant way to deal with this instead of sleeping.
-        # The latest comment was not being returned immediately when reloading
-        time.sleep(1)
 
     def get_posts(self):
         post_objs = BlogEntry.all().ancestor(fancy_blog).order('-created')
@@ -329,6 +312,26 @@ class WelcomeHandler(BlogHandler):
                         currUser=self.currUser)
         else:
             self.redirect('/signup')
+
+
+class AddCommentHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def post(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+
+        if self.request.get("comment"):
+            comment_text = self.request.get("comment")
+            new_comment = Comment(parent=blog_entry, comment_text=comment_text,
+                                  author=self.currUser)
+            new_comment.put()
+        else:
+            self.errs['error_on_post'] = int(self.request.get("post_id"))
+            self.errs['comment_error'] = "Please enter a comment"
+
+        self.redirect('/blog?showComments=' + kwargs['post_id'] +
+                      '#post-' + kwargs['post_id'])
 
 
 class EditCommentHandler(BlogHandler):
@@ -600,8 +603,7 @@ class Like(db.Model):
 # Define Comment Model
 class Comment(db.Model):
     comment_text = db.TextProperty(required=True)
-    post_id = db.IntegerProperty(required=True)
-    author_id = db.IntegerProperty(required=True)
+    author = db.ReferenceProperty(User, required=True)
     created = db.DateTimeProperty(auto_now_add=True)
 
     @classmethod
@@ -626,5 +628,6 @@ app = webapp2.WSGIApplication([
     webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/add', AddCommentHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
     debug=True)

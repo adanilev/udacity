@@ -12,7 +12,7 @@
       {{ post.content }}
     </section>
     <section class="col-xs-6 post-footer-left">
-      <a href="/blog/post/{{ post.key().id() }}/like">
+      <a href="/blog/post/{{ post.key().id() }}/like">L
         {% if currUser %}
           {% if Like.all().ancestor(post.key()).filter('liked_by =', currUser.key()).count() > 0 %}
             <i class="fa fa-thumbs-up" aria-hidden="true"></i>
@@ -24,11 +24,11 @@
         {% endif %}
       </a>
         {{ Like.all().ancestor(post.key()).count() }}
-      <a data-toggle="collapse" href="#comments-section-{{ post.key().id() }}" aria-expanded="false" aria-controls="collapseExample">
+      <a data-toggle="collapse" href="#comments-section-{{ post.key().id() }}" aria-expanded="false" aria-controls="collapseExample">C
         <i class="fa fa-comment-o" aria-hidden="true"></i>
         <!-- <i class="fa fa-comments-o" aria-hidden="true"></i> -->
       </a>
-      {{ Comment.all().filter('post_id = ', post.key().id()).count() }}
+      {{ Comment.all().ancestor(post.key()).count() }}
     </section>
     <section class="col-xs-6 post-footer-right text-right">
       <a href="/blog/post/{{ post.key().id() }}/edit">
@@ -43,10 +43,9 @@
     <div class="col-xs-12 comment-title">
       <h4>Comments</h4>
     </div>
-    <form method="post">
+    <form action="/blog/post/{{ post.key().id() }}/comment/add" method="post">
       <div class="col-xs-12 add-comment-txtarea">
         <textarea class="form-control" name="comment" rows="3"></textarea>
-        <!-- should hash the post_id to be more secure -->
         <input type="hidden" name="post_id" value="{{ post.key().id() }}">
       </div>
       <div class="col-xs-12 text-right add-comment-btnrow">
@@ -56,7 +55,7 @@
     </form>
 
     <!-- for each comment on this post -->
-    {% for c in Comment.all().filter('post_id = ', post.key().id()).order('-created') %}
+    {% for c in Comment.all().ancestor(post.key()).order('-created') %}
     <div class="col-xs-12 comment-header">
       {{ User.get_by_id(c.author_id).username }} commented on {{ c.created.strftime('%Y-%m-%d @ %H:%M:%S') }} (<a href="/editcomment?comment_id={{ c.key().id() }}">Edit</a> | <a href="?delete_comment={{ c.key().id() }}&post_id={{ post.key().id() }}">Delete</a>):
     </div>
