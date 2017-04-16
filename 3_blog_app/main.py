@@ -173,7 +173,7 @@ class BlogHandler(Handler):
 
     def user_owns_post(self, blog_entry):
         """Assumes post exists. Returns true if currUser owns blog_entry"""
-        if blog_entry.author_id == self.currUser.key().id():
+        if blog_entry.author.key().id() == self.currUser.key().id():
             return True
         else:
             return False
@@ -184,62 +184,87 @@ class BlogHandler(Handler):
 
 
 class BlogNewPostHandler(BlogHandler):
+    @user_logged_in
     def get(self):
-        if not self.currUser:
-            self.redirect('/signup')
-        else:
-            new_post_args = {'subject': '', 'content': '', 'error': ''}
-            edit_post = self.request.get("edit_post")
-            if edit_post:
-                # if wanting to edit the post
-                edit_post = int(edit_post)
-                # double check identity
-                if self.currUser.key().id() == \
-                        BlogEntry.get_by_id(
-                            edit_post, parent=fancy_blog).author_id:
-                    new_post_args['subject'] = BlogEntry.\
-                        get_by_id(edit_post, parent=fancy_blog).subject
-                    new_post_args['content'] = BlogEntry.\
-                        get_by_id(edit_post, parent=fancy_blog).content
-                else:
-                    new_post_args['error'] = "You can only edit your own posts"
+        new_post_args = {'subject': '', 'content': '', 'error': ''}
+        edit_post = self.request.get("edit_post")
+        if edit_post:
+            # if wanting to edit the post
+            edit_post = int(edit_post)
+            # double check identity
+            if self.currUser.key().id() == \
+                    BlogEntry.get_by_id(
+                        edit_post, parent=fancy_blog).author.key().id():
+                new_post_args['subject'] = BlogEntry.\
+                    get_by_id(edit_post, parent=fancy_blog).subject
+                new_post_args['content'] = BlogEntry.\
+                    get_by_id(edit_post, parent=fancy_blog).content
+            else:
+                new_post_args['error'] = "You can only edit your own posts"
 
+        self.render("new_post.html", new_post_args=new_post_args,
+                    currUser=self.currUser)
+
+    @user_logged_in
+    def post(self):
+        # Get data the user input
+        new_post_args = {}
+        new_post_args['subject'] = self.request.get("subject")
+        new_post_args['content'] = self.request.get("content")
+        new_post_args['error'] = ''
+        # If it's a valid post
+        if new_post_args['subject'] and new_post_args['content']:
+            # is it an update?
+            if self.request.get("edit_post"):
+                be = BlogEntry.get_by_id(
+                    int(self.request.get("edit_post")), parent=fancy_blog)
+                be.subject = new_post_args['subject']
+                be.content = new_post_args['content']
+            else:
+                # else create a new entry
+                be = BlogEntry(parent=fancy_blog,
+                               subject=new_post_args['subject'],
+                               content=new_post_args['content'],
+                               author=self.currUser)
+            be.put()
+            # And then redirect to the single post page
+            self.redirect('/blog/' + str(be.key().id()))
+            self.render("new_post.html", new_post_args=new_post_args,
+                        currUser=self.currUser)
+        else:
+            new_post_args['error'] = "Please complete both fields to post!"
             self.render("new_post.html", new_post_args=new_post_args,
                         currUser=self.currUser)
 
-    def post(self):
-        # Are they logged in?
-        if not self.currUser:
-            self.redirect('/signup')
+
+class EditPostHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        if self.user_owns_post(blog_entry):
+            self.redirect('/blog/newpost?editPost=' + kwargs['post_id'])
         else:
-            # Get data the user input
-            new_post_args = {}
-            new_post_args['subject'] = self.request.get("subject")
-            new_post_args['content'] = self.request.get("content")
-            new_post_args['error'] = ''
-            # If it's a valid post
-            if new_post_args['subject'] and new_post_args['content']:
-                # is it an update?
-                if self.request.get("edit_post"):
-                    be = BlogEntry.get_by_id(
-                        int(self.request.get("edit_post")), parent=fancy_blog)
-                    be.subject = new_post_args['subject']
-                    be.content = new_post_args['content']
-                else:
-                    # else create a new entry
-                    be = BlogEntry(parent=fancy_blog,
-                                   subject=new_post_args['subject'],
-                                   content=new_post_args['content'],
-                                   author_id=self.currUser.key().id())
-                be.put()
-                # And then redirect to the single post page
-                self.redirect('/blog/' + str(be.key().id()))
-                self.render("new_post.html", new_post_args=new_post_args,
-                            currUser=self.currUser)
-            else:
-                new_post_args['error'] = "Please complete both fields to post!"
-                self.render("new_post.html", new_post_args=new_post_args,
-                            currUser=self.currUser)
+            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
+            BlogHandler.errs['edit_error'] = 'You can only edit your own posts'
+            return self.redirect('/blog')
+
+
+class DeletePostHandler(BlogHandler):
+    @check_post_exists
+    @user_logged_in
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        if self.user_owns_post(blog_entry):
+            blog_entry.delete()
+            return self.redirect('/blog')
+        else:
+            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
+            BlogHandler.errs['delete_error'] = 'You can only delete your '\
+                                               'own posts'
+            return self.redirect('/blog')
 
 
 class BlogEntryHandler(BlogHandler):
@@ -380,8 +405,8 @@ class LogoutHandler(Handler):
 
 
 class LikeHandler(BlogHandler):
-    @check_post_exists
     @user_logged_in
+    @check_post_exists
     def get(self, **kwargs):
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
@@ -406,36 +431,6 @@ class LikeHandler(BlogHandler):
             like.delete()
 
         self.redirect("/blog#post-" + kwargs['post_id'])
-
-
-class EditPostHandler(BlogHandler):
-    @check_post_exists
-    @user_logged_in
-    def get(self, **kwargs):
-        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
-                                         parent=fancy_blog)
-        if self.user_owns_post(blog_entry):
-            self.redirect('/blog/newpost?editPost=' + kwargs['post_id'])
-        else:
-            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
-            BlogHandler.errs['edit_error'] = 'You can only edit your own posts'
-            return self.redirect('/blog')
-
-
-class DeletePostHandler(BlogHandler):
-    @check_post_exists
-    @user_logged_in
-    def get(self, **kwargs):
-        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
-                                         parent=fancy_blog)
-        if self.user_owns_post(blog_entry):
-            blog_entry.delete()
-            return self.redirect('/blog')
-        else:
-            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
-            BlogHandler.errs['delete_error'] = 'You can only delete your '\
-                                               'own posts'
-            return self.redirect('/blog')
 
 
 ##############################################################
@@ -554,8 +549,7 @@ class Blog(db.Model):
 class BlogEntry(db.Model):
     subject = db.StringProperty(required=True)
     content = db.TextProperty(required=True)
-    author_id = db.IntegerProperty(required=True)
-    # author_id = db.ReferenceProperty(User)
+    author = db.ReferenceProperty(User, required=True)
     created = db.DateTimeProperty(auto_now_add=True)
     modified = db.DateTimeProperty(auto_now=True)
 
@@ -570,15 +564,10 @@ class Comment(db.Model):
     author = db.ReferenceProperty(User, required=True)
     created = db.DateTimeProperty(auto_now_add=True)
 
-    @classmethod
-    def add_comment(cls, comment_text, post_id, author_id):
-        new_comment = Comment(comment_text=comment_text, post_id=post_id,
-                              author_id=author_id)
-        new_comment.put()
-
 
 # Datastore entities are descendants of this blog
 fancy_blog = Blog.get_or_insert('fancy_blog', name='Fancy Blog')
+
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
