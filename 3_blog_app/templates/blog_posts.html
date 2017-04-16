@@ -57,7 +57,7 @@
     <!-- for each comment on this post -->
     {% for c in Comment.all().ancestor(post.key()).order('-created') %}
     <div class="col-xs-12 comment-header">
-      {{ User.get_by_id(c.author_id).username }} commented on {{ c.created.strftime('%Y-%m-%d @ %H:%M:%S') }} (<a href="/blog/post/{{ post.key().id() }}/comment/{{ c.key().id() }}/edit">Edit</a> | <a href="?delete_comment={{ c.key().id() }}&post_id={{ post.key().id() }}">Delete</a>):
+      {{ c.author.username }} commented on {{ c.created.strftime('%Y-%m-%d @ %H:%M:%S') }} (<a href="/blog/post/{{ post.key().id() }}/comment/{{ c.key().id() }}/edit">Edit</a> | <a href="/blog/post/{{ post.key().id() }}/comment/{{ c.key().id() }}/delete">Delete</a>):
     </div>
     <section class="col-xs-12 comment-content">
       {{ c.comment_text }}

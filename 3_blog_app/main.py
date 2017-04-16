@@ -146,59 +146,12 @@ class BlogHandler(Handler):
     """
     errs = {}
 
-    def __init__(self, *args, **kwargs):
-        self.errors = {}
-        super(BlogHandler, self).__init__(*args, **kwargs)
-
-    """Deal with comments"""
     def get(self):
-        self.init_blog_errors()
-        # What link was clicked? Ideally would have done this via post but
-        # didn't want to mess around with the JavaScript. Should hash at least
-        delete_comment = self.request.get("delete_comment")
-
-        # what action to handle?
-        if delete_comment:
-            if not self.currUser:
-                # User is not logged in
-                self.redirect('/signup')
-                return
-            else:
-                # They are logged in, so check the comment to delete exists
-                delete_comment = int(delete_comment)
-                expand_post = int(self.request.get("post_id"))
-                if Comment.get_by_id(delete_comment):
-                    # Are they deleting their own comment?
-                    if self.currUser.key().id() == \
-                            Comment.get_by_id(delete_comment).author_id:
-                        # Delete the comment and show a success message
-                        Comment.get_by_id(delete_comment).delete()
-                        self.errs['error_on_post'] = delete_comment
-                        time.sleep(1)
-                        self.errs['comment_error'] = "Comment deleted!"
-                        self.render_blog_page(expand_post=expand_post)
-                    else:
-                        # Show error if not their comment
-                        self.errs['error_on_post'] = delete_comment
-                        self.errs['comment_error'] = "You can only delete" \
-                                                     " your own comments!"
-                        self.render_blog_page(expand_post=expand_post)
-                        return
-                else:
-                    # else the comment doesn't exist, so show an error
-                    self.errs['error_on_post'] = delete_comment
-                    self.errs['comment_error'] = "Error: that comment" \
-                                                 "doesn't exist!"
-                    self.render_blog_page(expand_post=expand_post)
-                    return
-
         show_comments = self.request.get("showComments")
         if show_comments:
             self.render_blog_page(expand_post=int(show_comments))
         else:
             self.render_blog_page()
-
-
 
     def render_blog_page(self, posts='', expand_post=0):
         """Convenience method to render any page showing a blog entry"""
@@ -217,15 +170,6 @@ class BlogHandler(Handler):
         for post in post_objs:
             posts.append(post)
         return posts
-
-    def init_blog_errors(self):
-        """Initialise error message list"""
-        self.errors = {}
-        self.errors['error_on_post'] = ''
-        self.errors['comment_error'] = ''
-        self.errors['like_error'] = ''
-        self.errors['edit_error'] = ''
-        self.errors['delete_error'] = ''
 
     def user_owns_post(self, blog_entry):
         """Assumes post exists. Returns true if currUser owns blog_entry"""
@@ -300,7 +244,6 @@ class BlogNewPostHandler(BlogHandler):
 
 class BlogEntryHandler(BlogHandler):
     def get(self, entry_id):
-        self.init_blog_errors()
         post = BlogEntry.get_by_id(int(entry_id), parent=fancy_blog)
         if post:
             self.render_blog_page([post])
@@ -373,7 +316,9 @@ class EditCommentHandler(BlogHandler):
                                          parent=fancy_blog)
         comment = Comment.get_by_id(int(kwargs['comment_id']),
                                     parent=blog_entry)
-        self.render("editcomment.html", comment_text=comment.comment_text)
+        print self.errs
+        self.render("editcomment.html", comment_text=comment.comment_text,
+                    errors=self.errs)
 
     @check_user_owns_comment
     def post(self, **kwargs):
@@ -388,11 +333,23 @@ class EditCommentHandler(BlogHandler):
             self.redirect('/blog?showComments=' + str(blog_entry.key().id()) +
                           '#post-' + str(blog_entry.key().id()))
         else:
-            edit_comment_error = 'Please enter a comment ' \
-                                 'to update.'
-            self.render("editcomment.html",
-                        comment_text=comment.comment_text,
-                        edit_comment_error=edit_comment_error)
+            self.errs['edit_comment_error'] = 'Please enter a comment to ' \
+                                              'update.'
+            self.redirect('/blog/post/' + str(blog_entry.key().id()) +
+                          '/comment/' + str(comment.key().id()) + '/edit')
+
+
+class DeleteCommentHandler(BlogHandler):
+    @check_user_owns_comment
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        comment = Comment.get_by_id(int(kwargs['comment_id']),
+                                    parent=blog_entry)
+        comment.delete()
+        self.errs['comment_error'] = "Comment deleted!"
+        self.redirect('/blog?showComments=' + str(blog_entry.key().id()) +
+                      '#post-' + str(blog_entry.key().id()))
 
 
 class LoginHandler(Handler):
@@ -631,11 +588,13 @@ app = webapp2.WSGIApplication([
     ('/logout', LogoutHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/add', AddCommentHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/comment/<comment_id:\d+>/edit',
                   EditCommentHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/<comment_id:\d+>/delete',
+                  DeleteCommentHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
-    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/add', AddCommentHandler),
     ('/blog/(\d+)', BlogEntryHandler)],
     debug=True)
