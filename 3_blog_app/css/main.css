@@ -41,11 +41,11 @@
   margin-bottom: 20px;
 }
 
-.login-submit-btn, .signup-submit-btn, .editcomment-submit-btn {
+.login-submit-btn, .signup-submit-btn {
   margin-bottom: 30px;
 }
 
-.newpost-cancel-btn {
+.newpost-cancel-btn, .editcomment-cancel-btn {
   margin: 8px auto 30px auto;
   max-width: 70px;
 }
