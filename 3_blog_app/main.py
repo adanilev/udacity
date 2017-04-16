@@ -43,6 +43,40 @@ def check_post_exists(fn):
     return wrapper
 
 
+def check_comment_exists(fn):
+    @wraps(fn)
+    @check_post_exists
+    def wrapper(self, *args, **kwargs):
+        if Comment.get_by_id(
+                int(kwargs['comment_id']),
+                parent=BlogEntry.get_by_id(
+                    int(kwargs['post_id']), parent=fancy_blog)):
+            return fn(self, *args, **kwargs)
+        else:
+            return self.handle_404()
+    return wrapper
+
+
+def check_user_owns_comment(fn):
+    @wraps(fn)
+    @user_logged_in
+    @check_comment_exists
+    def wrapper(self, *args, **kwargs):
+        blog_entry = BlogEntry.get_by_id(
+            int(kwargs['post_id']), parent=fancy_blog)
+        comment = Comment.get_by_id(
+            int(kwargs['comment_id']), parent=blog_entry)
+        if comment.author.key().id() == self.currUser.key().id():
+            return fn(self, *args, **kwargs)
+        else:
+            self.errs['error_on_post'] = blog_entry.key().id()
+            self.errs['comment_error'] = 'Whoa there, Nelly! That''s not '\
+                                         'your comment.'
+            self.redirect('/blog?showComments=' + kwargs['post_id'] +
+                          '#post-' + kwargs['post_id'])
+    return wrapper
+
+
 def user_logged_in(fn):
     @wraps(fn)
     def wrapper(self, *args, **kwargs):
@@ -152,7 +186,6 @@ class BlogHandler(Handler):
                         return
                 else:
                     # else the comment doesn't exist, so show an error
-                    # TODO should check for the post_id too....
                     self.errs['error_on_post'] = delete_comment
                     self.errs['comment_error'] = "Error: that comment" \
                                                  "doesn't exist!"
@@ -200,7 +233,6 @@ class BlogHandler(Handler):
             return True
         else:
             return False
-
 
 ##############################################################
 # Handlers
@@ -315,8 +347,8 @@ class WelcomeHandler(BlogHandler):
 
 
 class AddCommentHandler(BlogHandler):
-    @check_post_exists
     @user_logged_in
+    @check_post_exists
     def post(self, **kwargs):
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
@@ -335,57 +367,32 @@ class AddCommentHandler(BlogHandler):
 
 
 class EditCommentHandler(BlogHandler):
-    def get(self):
-        if self.currUser:
-            comment_id = self.request.get("comment_id")
-            if comment_id:
-                comment_id = int(comment_id)
-                if self.currUser.key().id() == Comment.\
-                        get_by_id(comment_id).author_id:
-                    # get the comment
-                    comment_text = Comment.get_by_id(comment_id).comment_text
-                    edit_comment_error = ''
-                    self.render("editcomment.html", comment_text=comment_text,
-                                edit_comment_error=edit_comment_error)
-                else:
-                    comment_text = ''
-                    edit_comment_error = 'Whoa there, Nelly! You can only ' \
-                                         'edit your own comments.'
-                    self.render("editcomment.html", comment_text=comment_text,
-                                edit_comment_error=edit_comment_error)
-        else:
-            self.redirect('/signup')
+    @check_user_owns_comment
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        comment = Comment.get_by_id(int(kwargs['comment_id']),
+                                    parent=blog_entry)
+        self.render("editcomment.html", comment_text=comment.comment_text)
 
-    def post(self):
-        if self.currUser:
-            comment_id = self.request.get("comment_id")
-            if comment_id:
-                comment_id = int(comment_id)
-                if self.currUser.key().id() == Comment.\
-                        get_by_id(comment_id).author_id:
-                    comment_text = self.request.get("comment_text")
-                    if comment_text:
-                        c = Comment.get_by_id(comment_id)
-                        c.comment_text = comment_text
-                        c.put()
-                        time.sleep(1)
-                        self.redirect('/blog')
-                    else:
-                        comment_text = Comment.get_by_id(
-                            comment_id).comment_text
-                        edit_comment_error = 'Please enter a comment ' \
-                                             'to update.'
-                        self.render("editcomment.html",
-                                    comment_text=comment_text,
-                                    edit_comment_error=edit_comment_error)
-                else:
-                    comment_text = ''
-                    edit_comment_error = 'Whoa there, Nelly! You can only ' \
-                                         'edit your own comments.'
-                    self.render("editcomment.html", comment_text=comment_text,
-                                edit_comment_error=edit_comment_error)
+    @check_user_owns_comment
+    def post(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        comment = Comment.get_by_id(int(kwargs['comment_id']),
+                                    parent=blog_entry)
+        comment_text = self.request.get("comment_text")
+        if comment_text:
+            comment.comment_text = comment_text
+            comment.put()
+            self.redirect('/blog?showComments=' + str(blog_entry.key().id()) +
+                          '#post-' + str(blog_entry.key().id()))
         else:
-            self.redirect('/signup')
+            edit_comment_error = 'Please enter a comment ' \
+                                 'to update.'
+            self.render("editcomment.html",
+                        comment_text=comment.comment_text,
+                        edit_comment_error=edit_comment_error)
 
 
 class LoginHandler(Handler):
@@ -622,9 +629,10 @@ app = webapp2.WSGIApplication([
     ('/welcome', WelcomeHandler),
     ('/login', LoginHandler),
     ('/logout', LogoutHandler),
-    ('/editcomment', EditCommentHandler),
     ('/blog', BlogHandler),
     ('/blog/newpost', BlogNewPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/<comment_id:\d+>/edit',
+                  EditCommentHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
