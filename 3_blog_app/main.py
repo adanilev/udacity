@@ -303,7 +303,6 @@ class SignupHandler(Handler):
             # blank the passwords and let them try again
             values["password"] = ""
             values["verify"] = ""
-            print values
             self.render("signup.html", values=values)
 
 
@@ -342,7 +341,6 @@ class EditCommentHandler(BlogHandler):
                                          parent=fancy_blog)
         comment = Comment.get_by_id(int(kwargs['comment_id']),
                                     parent=blog_entry)
-        print self.errs
         self.render("editcomment.html", comment_text=comment.comment_text,
                     errors=self.errs)
 
@@ -410,9 +408,6 @@ class LikeHandler(BlogHandler):
     @user_logged_in
     @check_post_exists
     def get(self, **kwargs):
-        print '-------------'
-        print kwargs['post_id']
-        print '-------------'
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
         liked_by = User.get_by_id(self.currUser.key().id())
