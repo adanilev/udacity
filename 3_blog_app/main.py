@@ -193,10 +193,9 @@ class BlogHandler(Handler):
             posts.append(post)
         return posts
 
-    @check_post_exists
     def user_owns_post(self, blog_entry):
-        """Returns true if currUser owns blog_entry. Keeping in addition to 
-        the decorator because it's convenient to use in one place"""
+        """Returns true if currUser owns blog_entry. Assumes that the post 
+        exists since it's being passed in."""
         if blog_entry.author.key().id() == self.currUser.key().id():
             return True
         else:
@@ -411,6 +410,9 @@ class LikeHandler(BlogHandler):
     @user_logged_in
     @check_post_exists
     def get(self, **kwargs):
+        print '-------------'
+        print kwargs['post_id']
+        print '-------------'
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
         liked_by = User.get_by_id(self.currUser.key().id())
