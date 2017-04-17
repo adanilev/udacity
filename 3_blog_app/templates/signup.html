@@ -4,23 +4,23 @@
 
 <form class="row" method="post">
     <div class="col-xs-12 form-group text-center">
-      <input type="text" class="form-control username-inp center-block" id="signup-username" name="username" placeholder="Username">
-      <div class="text-danger">{{ username_error }}</div>
+      <input type="text" class="form-control username-inp center-block" id="signup-username" name="username" placeholder="Username" value="{{ values['username'] }}">
+      <div class="text-danger">{{ values['username_error'] }}</div>
     </div>
 
     <div class="col-xs-12 form-group text-center">
       <input type="password" class="form-control password-inp center-block" id="signup-password" name="password" placeholder="Password">
-      <div class="text-danger">{{ password_error }}</div>
+      <div class="text-danger">{{ values['password_error'] }}</div>
     </div>
 
     <div class="col-xs-12 form-group text-center">
       <input type="password" class="form-control password-inp center-block" id="signup-password-verify" name="verify" placeholder="Verify">
-      <div class="text-danger">{{ verify_error }}</div>
+      <div class="text-danger">{{ values['verify_error'] }}</div>
     </div>
 
     <div class="col-xs-12 form-group text-center">
-      <input type="email" class="form-control email-inp center-block" id="signup-email-inp" name="email" placeholder="Email">
-      <div class="text-danger">{{ email_error }}</div>
+      <input type="email" class="form-control email-inp center-block" id="signup-email-inp" name="email" placeholder="Email" value="{{ values['email'] }}">
+      <div class="text-danger">{{ values['email_error'] }}</div>
     </div>
 
     <div class="col-xs-12">

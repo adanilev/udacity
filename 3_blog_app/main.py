@@ -33,6 +33,16 @@ jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
 ##############################################################
 # Decorators
 ##############################################################
+def user_logged_in(fn):
+    @wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        if self.currUser:
+            return fn(self, *args, **kwargs)
+        else:
+            return self.redirect('/signup')
+    return wrapper
+
+
 def check_post_exists(fn):
     @wraps(fn)
     def wrapper(self, *args, **kwargs):
@@ -40,6 +50,23 @@ def check_post_exists(fn):
             return fn(self, *args, **kwargs)
         else:
             return self.handle_404()
+    return wrapper
+
+
+def check_user_owns_post(fn):
+    @wraps(fn)
+    @user_logged_in
+    @check_post_exists
+    def wrapper(self, *args, **kwargs):
+        blog_entry = BlogEntry.get_by_id(
+            int(kwargs['post_id']), parent=fancy_blog)
+        if blog_entry.author.key().id() == self.currUser.key().id():
+            return fn(self, *args, **kwargs)
+        else:
+            self.errs['error_on_post'] = blog_entry.key().id()
+            self.errs['post_error'] = 'Whoa there, Nelly! You\'re not the ' \
+                                      'rightful owner of that there post!'
+            self.redirect('/blog#post-' + kwargs['post_id'])
     return wrapper
 
 
@@ -74,16 +101,6 @@ def check_user_owns_comment(fn):
                                          'your comment.'
             self.redirect('/blog?showComments=' + kwargs['post_id'] +
                           '#post-' + kwargs['post_id'])
-    return wrapper
-
-
-def user_logged_in(fn):
-    @wraps(fn)
-    def wrapper(self, *args, **kwargs):
-        if self.currUser:
-            return fn(self, *args, **kwargs)
-        else:
-            return self.redirect('/signup')
     return wrapper
 
 
@@ -142,20 +159,25 @@ class MainPage(Handler):
 
 class BlogHandler(Handler):
     """This class has common functions used by other handlers that deal with
-    blog entries. It also handles comment functionality.
+    blog entries.
     """
     errs = {}
 
     def get(self):
+        """Display the main blog page list. Expand the comments section of one 
+        post if asked to"""
         show_comments = self.request.get("showComments")
         if show_comments:
-            self.render_blog_page(expand_post=int(show_comments))
+            if BlogEntry.get_by_id(int(show_comments), parent=fancy_blog):
+                self.render_blog_page(expand_post=int(show_comments))
+            else:
+                self.handle_404()
         else:
             self.render_blog_page()
 
-    def render_blog_page(self, posts='', expand_post=0):
+    def render_blog_page(self, posts=None, expand_post=0):
         """Convenience method to render any page showing a blog entry"""
-        if not posts:
+        if posts is None:
             posts = self.get_posts()
 
         self.render("blog_posts.html",
@@ -171,8 +193,10 @@ class BlogHandler(Handler):
             posts.append(post)
         return posts
 
+    @check_post_exists
     def user_owns_post(self, blog_entry):
-        """Assumes post exists. Returns true if currUser owns blog_entry"""
+        """Returns true if currUser owns blog_entry. Keeping in addition to 
+        the decorator because it's convenient to use in one place"""
         if blog_entry.author.key().id() == self.currUser.key().id():
             return True
         else:
@@ -183,54 +207,27 @@ class BlogHandler(Handler):
 ##############################################################
 
 
-class BlogNewPostHandler(BlogHandler):
+class NewPostHandler(BlogHandler):
     @user_logged_in
     def get(self):
         new_post_args = {'subject': '', 'content': '', 'error': ''}
-        edit_post = self.request.get("edit_post")
-        if edit_post:
-            # if wanting to edit the post
-            edit_post = int(edit_post)
-            # double check identity
-            if self.currUser.key().id() == \
-                    BlogEntry.get_by_id(
-                        edit_post, parent=fancy_blog).author.key().id():
-                new_post_args['subject'] = BlogEntry.\
-                    get_by_id(edit_post, parent=fancy_blog).subject
-                new_post_args['content'] = BlogEntry.\
-                    get_by_id(edit_post, parent=fancy_blog).content
-            else:
-                new_post_args['error'] = "You can only edit your own posts"
-
         self.render("new_post.html", new_post_args=new_post_args,
                     currUser=self.currUser)
 
     @user_logged_in
     def post(self):
-        # Get data the user input
-        new_post_args = {}
-        new_post_args['subject'] = self.request.get("subject")
-        new_post_args['content'] = self.request.get("content")
-        new_post_args['error'] = ''
+        # Get the data the user put in
+        new_post_args = {'subject': self.request.get("subject"),
+                         'content': self.request.get("content")}
         # If it's a valid post
         if new_post_args['subject'] and new_post_args['content']:
-            # is it an update?
-            if self.request.get("edit_post"):
-                be = BlogEntry.get_by_id(
-                    int(self.request.get("edit_post")), parent=fancy_blog)
-                be.subject = new_post_args['subject']
-                be.content = new_post_args['content']
-            else:
-                # else create a new entry
-                be = BlogEntry(parent=fancy_blog,
-                               subject=new_post_args['subject'],
-                               content=new_post_args['content'],
-                               author=self.currUser)
-            be.put()
+            blog_entry = BlogEntry(parent=fancy_blog,
+                                   subject=new_post_args['subject'],
+                                   content=new_post_args['content'],
+                                   author=self.currUser)
+            blog_entry.put()
             # And then redirect to the single post page
-            self.redirect('/blog/' + str(be.key().id()))
-            self.render("new_post.html", new_post_args=new_post_args,
-                        currUser=self.currUser)
+            self.redirect('/blog/post/' + str(blog_entry.key().id()))
         else:
             new_post_args['error'] = "Please complete both fields to post!"
             self.render("new_post.html", new_post_args=new_post_args,
@@ -238,42 +235,48 @@ class BlogNewPostHandler(BlogHandler):
 
 
 class EditPostHandler(BlogHandler):
-    @check_post_exists
-    @user_logged_in
+    @check_user_owns_post
     def get(self, **kwargs):
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
-        if self.user_owns_post(blog_entry):
-            self.redirect('/blog/newpost?editPost=' + kwargs['post_id'])
+        new_post_args = {'subject': blog_entry.subject,
+                         'content': blog_entry.content}
+        self.render("new_post.html",
+                    new_post_args=new_post_args, currUser=self.currUser)
+
+    @check_user_owns_post
+    def post(self, **kwargs):
+        new_post_args = {'subject': self.request.get("subject"),
+                         'content': self.request.get("content")}
+
+        if new_post_args['subject'] and new_post_args['content']:
+            blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                             parent=fancy_blog)
+            blog_entry.subject = new_post_args['subject']
+            blog_entry.content = new_post_args['content']
+            blog_entry.put()
+            self.redirect('/blog#post-' + kwargs['post_id'])
         else:
-            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
-            BlogHandler.errs['edit_error'] = 'You can only edit your own posts'
-            return self.redirect('/blog')
+            new_post_args['error'] = "Please complete both fields to post!"
+            self.render("new_post.html", new_post_args=new_post_args,
+                        currUser=self.currUser)
 
 
 class DeletePostHandler(BlogHandler):
-    @check_post_exists
-    @user_logged_in
+    @check_user_owns_post
     def get(self, **kwargs):
         blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
                                          parent=fancy_blog)
-        if self.user_owns_post(blog_entry):
-            blog_entry.delete()
-            return self.redirect('/blog')
-        else:
-            BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
-            BlogHandler.errs['delete_error'] = 'You can only delete your '\
-                                               'own posts'
-            return self.redirect('/blog')
+        blog_entry.delete()
+        return self.redirect('/blog')
 
 
-class BlogEntryHandler(BlogHandler):
-    def get(self, entry_id):
-        post = BlogEntry.get_by_id(int(entry_id), parent=fancy_blog)
-        if post:
-            self.render_blog_page([post])
-        else:
-            self.error(404)
+class ReadOnePostHandler(BlogHandler):
+    @check_post_exists
+    def get(self, **kwargs):
+        blog_entry = BlogEntry.get_by_id(int(kwargs['post_id']),
+                                         parent=fancy_blog)
+        self.render_blog_page([blog_entry])
 
 
 class SignupHandler(Handler):
@@ -301,20 +304,19 @@ class SignupHandler(Handler):
             # blank the passwords and let them try again
             values["password"] = ""
             values["verify"] = ""
-            self.render("signup.html", **values)
+            print values
+            self.render("signup.html", values=values)
 
 
 class WelcomeHandler(BlogHandler):
+    @user_logged_in
     def get(self):
-        if self.currUser:
-            username = self.currUser.username
-            self.render("welcome.html", username=username,
-                        currUser=self.currUser)
-        else:
-            self.redirect('/signup')
+        username = self.currUser.username
+        self.render("welcome.html", username=username,
+                    currUser=self.currUser)
 
 
-class AddCommentHandler(BlogHandler):
+class NewCommentHandler(BlogHandler):
     @user_logged_in
     @check_post_exists
     def post(self, **kwargs):
@@ -511,27 +513,27 @@ def verify_signup_input(values):
 
     # does the username exist already?
     if get_user_id(values["username"]):
-        values["usernameError"] = "Sorry, that username is already taken"
+        values["username_error"] = "Sorry, that username is already taken"
         values["success"] = False
 
     # verify username
     if USER_RE.match(values["username"]) is None:
-        values["usernameError"] = "Invalid username"
+        values["username_error"] = "Invalid username"
         values["success"] = False
 
     # test the email
     if values["email"]:
         if EMAIL_RE.match(values["email"]) is None:
-            values["emailError"] = "Invalid email"
+            values["email_error"] = "Invalid email"
             values["success"] = False
 
     # test the password conforms
     if PASSWORD_RE.match(values["password"]) is None:
-        values["passwordError"] = "Invalid password"
+        values["password_error"] = "Invalid password"
         values["success"] = False
     # and match
     if values["password"] != values["verify"]:
-        values["verifyError"] = "Passwords don't match"
+        values["verify_error"] = "Passwords don't match"
         values["success"] = False
 
     return values
@@ -576,14 +578,14 @@ app = webapp2.WSGIApplication([
     ('/login', LoginHandler),
     ('/logout', LogoutHandler),
     ('/blog', BlogHandler),
-    ('/blog/newpost', BlogNewPostHandler),
-    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/add', AddCommentHandler),
+    ('/blog/newpost', NewPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>', ReadOnePostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
+    webapp2.Route(r'/blog/post/<post_id:\d+>/comment/add', NewCommentHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/comment/<comment_id:\d+>/edit',
                   EditCommentHandler),
     webapp2.Route(r'/blog/post/<post_id:\d+>/comment/<comment_id:\d+>/delete',
                   DeleteCommentHandler),
-    webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler),
-    webapp2.Route(r'/blog/post/<post_id:\d+>/edit', EditPostHandler),
-    webapp2.Route(r'/blog/post/<post_id:\d+>/delete', DeletePostHandler),
-    ('/blog/(\d+)', BlogEntryHandler)],
+    webapp2.Route(r'/blog/post/<post_id:\d+>/like', LikeHandler)],
     debug=True)

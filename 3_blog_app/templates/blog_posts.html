@@ -12,7 +12,7 @@
       {{ post.content }}
     </section>
     <section class="col-xs-6 post-footer-left">
-      <a href="/blog/post/{{ post.key().id() }}/like">L
+      <a href="/blog/post/{{ post.key().id() }}/like">
         {% if currUser %}
           {% if Like.all().ancestor(post.key()).filter('liked_by =', currUser.key()).count() > 0 %}
             <i class="fa fa-thumbs-up" aria-hidden="true"></i>
@@ -24,7 +24,7 @@
         {% endif %}
       </a>
         {{ Like.all().ancestor(post.key()).count() }}
-      <a data-toggle="collapse" href="#comments-section-{{ post.key().id() }}" aria-expanded="false" aria-controls="collapseExample">C
+      <a data-toggle="collapse" href="#comments-section-{{ post.key().id() }}" aria-expanded="false" aria-controls="collapseExample">
         <i class="fa fa-comment-o" aria-hidden="true"></i>
         <!-- <i class="fa fa-comments-o" aria-hidden="true"></i> -->
       </a>
@@ -32,10 +32,10 @@
     </section>
     <section class="col-xs-6 post-footer-right text-right">
       <a href="/blog/post/{{ post.key().id() }}/edit">
-        E<i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
       </a>
       <a href="/blog/post/{{ post.key().id() }}/delete">
-        D<i class="fa fa-trash-o" aria-hidden="true"></i>
+        <i class="fa fa-trash-o" aria-hidden="true"></i>
       </a>
     </section>
   </article>
@@ -71,6 +71,7 @@
         <div class="text-danger">{{ errors['like_error'] }}</div>
         <div class="text-danger">{{ errors['edit_error'] }}</div>
         <div class="text-danger">{{ errors['delete_error'] }}</div>
+        <div class="text-danger">{{ errors['post_error'] }}</div>
       {% endif %}
       <hr>
     </div>
