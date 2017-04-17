@@ -281,7 +281,7 @@ class ReadOnePostHandler(BlogHandler):
 
 class SignupHandler(Handler):
     def get(self):
-        self.render("signup.html", currUser=self.currUser)
+        self.render("signup.html", currUser=self.currUser, values={})
 
     def post(self):
         values = ({"username": self.request.get("username"),
@@ -395,7 +395,8 @@ class LoginHandler(Handler):
             self.set_cookie(user_id)
             self.redirect("/blog")
         else:
-            self.render("login.html", **values)
+            login_error = 'Invalid login details. You shall not pass.'
+            self.render("login.html", login_error=login_error)
 
 
 class LogoutHandler(Handler):
@@ -418,6 +419,9 @@ class LikeHandler(BlogHandler):
             .get()
 
         # Show error if they are trying to like their own post
+        # Not using a decorator here because that shows a generic error when
+        # they DON'T own a post. This shows a specific error when they DO own
+        # the post.
         if self.user_owns_post(blog_entry):
             BlogHandler.errs['error_on_post'] = int(kwargs['post_id'])
             BlogHandler.errs['like_error'] = 'Sorry, you can''t like your ' \
